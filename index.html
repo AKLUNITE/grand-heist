@@ -756,7 +756,7 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
   #cmd[data-step="move"] .hint{display:none}
   #cmd[data-step="move"] #bEnd{flex:0 0 auto;width:auto;margin:0;padding:10px 14px;align-items:center}
   #cmd[data-step="move"] #bEnd small{display:none}
-  #cmd[data-step="move"]::after{content:"光るマスをタップして進む";flex:1 1 100%;font-size:11.5px;color:var(--mute)}
+  #cmd[data-step="move"][data-mine="1"]::after{content:"光るマスをタップして進む";flex:1 1 100%;font-size:11.5px;color:var(--mute)}
   #cmd[data-step="roll"] .hint{display:none}
   #ticker{font-size:11px;padding:3px 10px}
 }
@@ -776,7 +776,7 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
   #diceLayer.show{display:flex;flex-direction:column;align-items:center;box-sizing:border-box;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px calc(env(safe-area-inset-bottom,0px) + 10px)}
   #diceHead,#diceLegend,#diceBreak,#diceTally,#diceResult,#diceNext{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;width:100%!important;max-width:520px;box-sizing:border-box}
   #diceHead{order:1}#dicePurpose{font-size:11px;padding:2px 10px;margin-bottom:2px}#diceTitle{font-size:18px!important;line-height:1.3}
-  #diceSub{font-size:12px!important;margin-top:2px!important;line-height:1.45!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #diceSub{font-size:12px!important;margin-top:2px!important;line-height:1.45!important;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
   #diceSub .odds{font-size:12px}#diceSrc{display:none!important}
   #diceLegend{order:2;margin-top:6px;padding:4px 8px!important;display:flex!important;flex-wrap:wrap;justify-content:center;align-items:center;gap:2px 10px!important;background:rgba(8,8,13,.72)!important;border-radius:6px}
   #diceLegend[hidden]{display:none!important}
@@ -842,7 +842,8 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
 .nb{display:inline-block;white-space:nowrap}
 body{word-break:keep-all;overflow-wrap:anywhere;line-break:strict}
 input,textarea,#log,.np-code b{word-break:normal}
-#bFollow{transition:opacity .2s}
+#bFollow{transition:opacity .6s}#bFollow.idle{opacity:0;pointer-events:none}
+body:has(#diceLayer.show) #cmd,body:has(#diceLayer.show) #ticker{visibility:hidden}
 body:has(#myturn.show) #bFollow,body:has(#modal.show) #bFollow,body:has(#draw.show) #bFollow,body:has(#crewpop.show) #bFollow,body:has(#top.menu) #bFollow,body:has(#deal.show) #bFollow,body:has(#logdrawer.open) #bFollow{display:none!important}
 </style>
 
@@ -1808,14 +1809,15 @@ const isPhone=()=>innerWidth<=860;
 const ptrs=new Map();let dragMoved=0,pinch0=0;
 // 盤面のスライド（平行移動）：右ドラッグ／中ドラッグ／Shift+ドラッグ／2本指ドラッグ／WASD・矢印キー
 let panMode=false;
-function setCamFree(on){if(cam.free===on)return;cam.free=on;const b=$('#bCam');if(b){b.classList.toggle('free',!!on);b.textContent=on?'手番を追う':'視点'}const f=$('#bFollow');if(f)f.classList.toggle('show',!!on);const m=$('#bMenu');if(m)m.classList.toggle('dot',!!on);cam.autoRad=null}
-function camPan(dx,dy){setCamFree(true);const k=cam.rad*.0017,ct=Math.cos(cam.theta),st=Math.sin(cam.theta);
+function camPing(){const f=$('#bFollow');if(!f||!cam.free)return;f.classList.remove('idle');clearTimeout(f._t);f._t=setTimeout(()=>f.classList.add('idle'),2500)}
+function setCamFree(on){if(cam.free===on)return;cam.free=on;const b=$('#bCam');if(b){b.classList.toggle('free',!!on);b.textContent=on?'手番を追う':'視点'}const f=$('#bFollow');if(f){f.classList.toggle('show',!!on);if(on)camPing()}const m=$('#bMenu');if(m)m.classList.toggle('dot',!!on);cam.autoRad=null}
+function camPan(dx,dy){setCamFree(true);camPing();const k=cam.rad*.0017,ct=Math.cos(cam.theta),st=Math.sin(cam.theta);
   const mx=(-dx*ct-dy*st)*k,mz=(dx*st-dy*ct)*k;
   [cam.tgt,cam.want].forEach(v=>{v.x=Math.min(13,Math.max(-13,v.x+mx));v.z=Math.min(13,Math.max(-9,v.z+mz))})}
 document.addEventListener('contextmenu',e=>{if(e.target.closest&&e.target.closest('input,textarea'))return;e.preventDefault()},true);
 canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});dragMoved=0;panMode=e.pointerType==='mouse'&&(e.button===2||e.button===1||e.shiftKey);if(e.button===1)e.preventDefault();if(ptrs.size===2){const [a,b]=[...ptrs.values()];pinch0=Math.hypot(a.x-b.x,a.y-b.y)}canvas.classList.add('dragging')});
 canvas.addEventListener('pointermove',e=>{const p=ptrs.get(e.pointerId);if(!p)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;
-  if(ptrs.size===1){if(panMode)camPan(dx,dy);else{cam.wantTheta=null;cam.theta-=dx*.006;cam.phi=Math.min(1.35,Math.max(.25,cam.phi-dy*.005))}dragMoved+=Math.abs(dx)+Math.abs(dy)}
+  camPing();if(ptrs.size===1){if(panMode)camPan(dx,dy);else{cam.wantTheta=null;cam.theta-=dx*.006;cam.phi=Math.min(1.35,Math.max(.25,cam.phi-dy*.005))}dragMoved+=Math.abs(dx)+Math.abs(dy)}
   if(ptrs.size===2){const [a0,b0]=[...ptrs.values()];const mx0=(a0.x+b0.x)/2,my0=(a0.y+b0.y)/2;p.x=e.clientX;p.y=e.clientY;const [a,b]=[...ptrs.values()];
     camPan((a.x+b.x)/2-mx0,(a.y+b.y)/2-my0);const d=Math.hypot(a.x-b.x,a.y-b.y);cam.wantRad=null;cam.rad=Math.min(34,Math.max(7,cam.rad*pinch0/d));pinch0=d;dragMoved=99}
   else{p.x=e.clientX;p.y=e.clientY}});
@@ -1826,7 +1828,7 @@ const endPtr=e=>{if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);canva
   if(e.pointerType!=='mouse'&&S&&holos.length){const hq=holoHit(e);holos.forEach((h,i)=>h.pin=i===hq&&!h.pin);if(hq>=0)return}
   onWorldClick(e)}};
 canvas.addEventListener('pointerup',endPtr);canvas.addEventListener('pointercancel',e=>ptrs.delete(e.pointerId));
-canvas.addEventListener('wheel',e=>{e.preventDefault();cam.wantRad=null;cam.rad=Math.min(34,Math.max(7,cam.rad*(1+e.deltaY*.001)))},{passive:false});
+canvas.addEventListener('wheel',e=>{e.preventDefault();camPing();cam.wantRad=null;cam.rad=Math.min(34,Math.max(7,cam.rad*(1+e.deltaY*.001)))},{passive:false});
 const ray=new THREE.Raycaster(),mv=new THREE.Vector2();
 function holoHit(e){const r=canvas.getBoundingClientRect();const v=new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);ray.setFromCamera(v,camera);
   const hits=ray.intersectObjects(holos.filter(h=>h.pivot.visible).flatMap(h=>[h.inner.visible?h.card:null,h.mini.visible?h.mini:null]).filter(Boolean));
@@ -1924,7 +1926,7 @@ function legendHTML(rows,title='出目の見方',extra=''){return`<div class="pt
 function peakLegend(noF){return legendHTML([{f:[1],c:noF?'z':'r',t:noF?'±0（ファンブル無効）':'−1　ファンブル'},{f:[2,3],c:'z',t:'±0'},{f:[4,5],c:'g',t:'+1'},{f:[6],c:'y',t:'+1　もう1個振る'}],'出目の見方',
   `<div class="pt sm">振り足し（金のダイス）</div><div class="lg">${md(1,'gold')}<span>−1</span></div><div class="lg">${md('2〜5','gold')}<span>+1</span></div><div class="lg">${md(6,'gold')}<span>+1　さらに振る</span></div>`)}
 function diceOpen({purpose='',pc='',title='',sub='',legend='',table=null,tableTitle='結果表'}){DICE.on=true;DICE.fast=false;DICE.phase='rolling';$('#diceLayer').classList.add('show');diceClear();
-  const pe=$('#dicePurpose');pe.textContent=purpose;pe.className='purpose '+pc;pe.hidden=!purpose;$('#diceTitle').innerHTML=title;$('#diceSub').innerHTML=sub;
+  sub=String(sub||'').replace(/。<b>/,'。<br><b>');const pe=$('#dicePurpose');pe.textContent=purpose;pe.className='purpose '+pc;pe.hidden=!purpose;$('#diceTitle').innerHTML=title;$('#diceSub').innerHTML=sub;
   const lg=$('#diceLegend');lg.innerHTML=legend;lg.hidden=!legend;
   DICE.table=table;const tb=$('#diceTable');tb.hidden=!table;tb.innerHTML=table?`<div class="pt">${tableTitle}</div>`+table.map(r=>`<div class="tb ${r.c||''}"><b>${r.k}</b><span>${r.t}</span></div>`).join(''):''}
 function tableHL(v){if(!DICE.table)return null;let hit=null;document.querySelectorAll('#diceTable .tb').forEach((el,i)=>{const on=DICE.table[i].test(v);el.classList.toggle('on',on);if(on&&!hit)hit=DICE.table[i]});return hit}
@@ -2071,7 +2073,7 @@ function openLog(on){const d=$('#logdrawer');d.classList.toggle('open',on);if(on
 function stText(){if(S.phase==='final')return'金庫に挑戦中';if(S.phase==='escape')return'逃走中';if(DICE.on)return'判定中';return{roll:'移動ダイスを振る',move:'移動中',warp:'なりすまし移動',action:'行動を選択中',done:'手番終了'}[S.step]||''}
 function renderCrew(){const el=$('#crew');if(!el||!S)return;const me=meIdx();
   el.innerHTML=S.chars.map((c,i)=>{const now=i===S.turn&&S.phase!=='end';const T=TRUMP[c.id];const tr=!c.dead&&S.plan>=T.cost&&S.phase!=='end';const cb=S.phase==='adventure'&&!c.dead&&comboReady(c).some(x=>x.near);
-    return`<button class="cc ${now?'now':''} ${c.dead?'dead':''} ${mine(c)&&(i===me||NET.on)?'me':''}" id="chip-${c.id}" data-ci="${i}" style="--c:${c.css}"><img src="${AV[c.id]||''}" alt=""><span class="ci"><b>${esc(c.name)}</b><small>${c.job}・Lv${c.lv}${c.cpu?'・CPU':i===me?'・あなた':''}</small><i class="lf"><em style="width:${Math.max(0,c.life/c.maxLife*100)}%"></em></i></span>${cb?'<span class="bd cbd" title="連携技が使える">⚡</span>':''}${tr?'<span class="bd tbd" title="切り札が使える">✦</span>':''}${now?`<span class="st">${c.dead?'確保':stText()}</span>`:''}</button>`}).join('<i class="carr"></i>');
+    return`<button class="cc ${now?'now':''} ${c.dead?'dead':''} ${mine(c)&&(i===me||NET.on)?'me':''}" id="chip-${c.id}" data-ci="${i}" style="--c:${c.css}"><img src="${AV[c.id]||''}" alt=""><span class="ci"><b>${esc(c.name)}</b><small>Lv${c.lv}${c.cpu?'・CPU':i===me?'・あなた':''}</small><i class="lf"><em style="width:${Math.max(0,c.life/c.maxLife*100)}%"></em></i></span>${cb?'<span class="bd cbd" title="連携技が使える">⚡</span>':''}${tr?'<span class="bd tbd" title="切り札が使える">✦</span>':''}${now?`<span class="st">${c.dead?'確保':stText()}</span>`:''}</button>`}).join('<i class="carr"></i>');
   el.querySelectorAll('[data-ci]').forEach(b=>{b.onclick=e=>{e.stopPropagation();showCrewPop(+b.dataset.ci,b)}})}
 function showCrewPop(i,anchor){const pop=$('#crewpop');if(pop.dataset.i==String(i)&&pop.classList.contains('show')){pop.classList.remove('show');pop.dataset.i='';return}
   const ch=S.chars[i];pop.innerHTML=sheetHTML(ch,i,mine(ch));pop.dataset.i=i;const r=anchor.getBoundingClientRect();
@@ -2079,7 +2081,7 @@ function showCrewPop(i,anchor){const pop=$('#crewpop');if(pop.dataset.i==String(
 document.addEventListener('pointerdown',e=>{const pop=$('#crewpop');if(pop&&pop.classList.contains('show')&&!pop.contains(e.target)&&!e.target.closest('#crew'))pop.classList.remove('show')});
 function renderAll(){renderTop();renderSquad();renderPanel();renderHL();renderEhud()}
 const nm=ch=>`<b style="color:${ch.css}">${esc(ch.name)}</b>`;
-function toast(ch,label){const t=$('#toast');t.innerHTML=`<small>${label}</small><span style="color:${ch.css}">${esc(ch.name)}</span>（${ch.job}）の番`;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400*TEMPO)}
+function toast(ch,label){const t=$('#toast');t.innerHTML=`<small>${label}</small><span style="color:${ch.css}">${esc(ch.name)}</span>の番`;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400*TEMPO)}
 
 function boostUI(ch){if(ch.res.type!=='boost'||ch.resv<=0)return'';return`<div class="boost"><span>${ch.res.name}でダイス追加</span><button id="bm" aria-label="減らす">−</button><b>${S.boost}</b><button id="bp" aria-label="増やす">＋</button><span style="color:var(--mute)">残り${ch.resv}</span></div>`}
 function bindBoost(ch){const bm=$('#bm'),bp=$('#bp');if(bm){bm.onclick=()=>{S.boost=Math.max(0,S.boost-1);SFX.click();renderPanel()};bp.onclick=()=>{S.boost=Math.min(ch.resv,S.boost+1);SFX.click();renderPanel()}}}
@@ -2117,15 +2119,15 @@ function removeLocks(t,k){for(let i=0;i<k;i++){const li=S.vlocks.findIndex(l=>l.
 function finalRows(b=vBase()){return[[`${b+2}+`,'神業：ロックを3段解除','g',s=>s>=b+2],[`${b+1}`,'ロックを2段解除','g',s=>s===b+1],[`${b}`,'ロックを1段解除','g',s=>s===b],[`${b-1}`,'1段解除、警報で自分に1ダメージ','y',s=>s===b-1],
   [b-2>2?`2〜${b-2}`:'2','連携：次の団員の判定に+2','y',s=>s>=2&&s<=b-2],['1','センサーに触れた：自分に1ダメージ','r',s=>s===1],['0','警備員と鉢合わせ：自分に2ダメージ','r',s=>s===0],['−','包囲された：自分に3ダメージ','r',s=>s<0]]}
 const T_FINALf=(b)=>finalRows(b).map(([k,t,c,test])=>({k,t,c,test}));
-function renderPanel(){const el=$('#cmd');if(!S)return;el.dataset.step=S.phase==='adventure'?S.step:S.phase;const mt=$('#myturn');mt.classList.remove('show');renderCrew();
+function renderPanel(){const el=$('#cmd');if(!S)return;el.dataset.step=S.phase==='adventure'?S.step:S.phase;el.dataset.mine=cur()&&mine(cur())?'1':'0';const mt=$('#myturn');mt.classList.remove('show');renderCrew();
   if(S.phase==='end'){el.innerHTML='';el.classList.add('empty');return}
   const ch=cur();el.style.setProperty('--c',ch.css);el.classList.remove('empty');
-  let h=`<div class="dockhead"><span class="eyebrow">${S.phase==='escape'?'Phase III — 逃走':S.phase==='final'?'Phase II — 本番':'Phase I — 下見'}</span><b style="color:${ch.css}">${esc(ch.name)}</b><small>${ch.job}の手番</small><span class="eyebrow" style="color:var(--mute);margin-left:auto">Round ${S.round}</span></div>`;
+  let h=`<div class="dockhead"><span class="eyebrow">${S.phase==='escape'?'Phase III — 逃走':S.phase==='final'?'Phase II — 本番':'Phase I — 下見'}</span><b style="color:${ch.css}">${esc(ch.name)}</b><span class="eyebrow" style="color:var(--mute);margin-left:auto">Round ${S.round}</span></div>`;
   if(S.phase==='escape'){el.innerHTML=h+`<p class="hint">逃走中。関門ごとに1人ずつ判定し、成功すれば通過、失敗するとスタミナ−1（2回で逮捕）。</p><div class="esl">${S.chars.map(c=>`<div style="--c:${c.css}" class="${c.caught?'out':''}"><b>${esc(c.name)}</b><span>${c.caught?'逮捕':c.escHome?'アジト到着':`失敗 ${c.escFail||0}/2　重さ${wtOf(c)}${S.showOdds!==false&&!c.dead?`　逃げ切り 約${pct(escOdds(c))}`:''}`}</span></div>`).join('')}</div>`;return}
   if(S.step==='intro'){el.innerHTML=`<div class="dockhead"><span class="eyebrow">Phase I — 下見</span><b>作戦準備中</b><small>金庫・裏の依頼・手番の順番を決めています</small></div>`;return}
   if(BUSY&&mine(ch)){el.innerHTML=h+`<p class="hint">処理中…</p>`;return}
-  if(!ch.cpu&&!mine(ch)){el.innerHTML=`<div class="cpuline" style="--c:${ch.css}"><img src="${AV[ch.id]||''}" alt=""><span><b>${esc(ch.name)}</b>（${ch.job}）の番です。${esc(memberName(ch.owner))}が操作しています…</span></div>`;return}
-  if(ch.cpu){el.innerHTML=`<div class="cpuline" style="--c:${ch.css}"><img src="${AV[ch.id]||''}" alt=""><span><b>${esc(ch.name)}</b>（${ch.job}）が${stText()}…</span><button class="btn ghost" id="bFast">${SPEED<1?'通常速度に戻す':'CPUの番を早送り'}</button></div>`;$('#bFast').onclick=()=>{SPEED=SPEED<1?1:.45;renderPanel()};return}
+  if(!ch.cpu&&!mine(ch)){el.innerHTML=`<div class="cpuline" style="--c:${ch.css}"><img src="${AV[ch.id]||''}" alt=""><span><b>${esc(ch.name)}</b>の番です。${esc(memberName(ch.owner))}が操作しています…</span></div>`;return}
+  if(ch.cpu){el.innerHTML=`<div class="cpuline" style="--c:${ch.css}"><img src="${AV[ch.id]||''}" alt=""><span><b>${esc(ch.name)}</b>が${stText()}…</span><button class="btn ghost" id="bFast">${SPEED<1?'通常速度に戻す':'CPUの番を早送り'}</button></div>`;$('#bFast').onclick=()=>{SPEED=SPEED<1?1:.45;renderPanel()};return}
   if(S.phase==='final'){const push=!!S.pushSel;
     const thr=ALARMS.filter(a=>!S.alarmsHit.includes(a)&&a<S.locks)[0];
     const chips=[`<span class="fc"><b>${VSTAGE[vStage()].name}</b> 得意${vBase()}・専門外${vBase()+1}${vStage()<2?`（次の層${VSTAGE[vStage()+1].base}）`:''}</span>`,
@@ -2188,7 +2190,7 @@ function actionCards(ch){const t=terr(ch.r,ch.c),aq=adjQuests(ch),hid=aq.filter(
   const advOk=t==='C'||t==='X';C.push({k:'adventure',ic:'coin',name:'小仕事',title:'ひと稼ぎ',txt:'成功数2以上で経験+1。失敗すると1ダメージ',meta:advOk?`ダイス${ch.adv[t==='C'?0:1]}個`:'',tags:ch.id==='pickpocket'?[['ab','★器用な指先 1が無効']]:[],ok:advOk,why:'繁華街・裏路地でのみ'});
   const L=lootHere(ch);if(L){const n=ch.scn+S.boost+ch.buff.dice;C.unshift({k:'loot',L,ic:'coin',name:'お宝',title:L.name,txt:`潜入${L.diff}以上で静かに盗む。足りなくても手に入るが警戒+1`,meta:`価値${L.val}・重さ${L.wt}　ダイス${n}個${S.showOdds!==false?`（静かに ${pct(odds(n,L.diff))}）`:''}`,ok:true,wide:true,
     tags:[...(ch.scn>=3?[['ab','★潜入'+ch.scn+' 盗みが得意']]:[]),...(ch.scn<=1?[['wk','▼潜入'+ch.scn+' 警報を鳴らしやすい']]:[])]})}
-  combosFor(ch).forEach(({cb,p})=>C.unshift({k:'combo',id:cb.id,ic:'star',name:'連携技',title:cb.name,txt:cb.text,meta:`×${p.name}（${p.job}）　1ゲーム1回`,ok:true,wide:true,tags:[['ab','⚡COMBO']]}));
+  combosFor(ch).forEach(({cb,p})=>C.unshift({k:'combo',id:cb.id,ic:'star',name:'連携技',title:cb.name,txt:cb.text,meta:`×${p.name}　1ゲーム1回`,ok:true,wide:true,tags:[['ab','⚡COMBO']]}));
   const restOk=(t==='B'||t==='S')&&!isBurned(ch.r,ch.c);C.push({k:'rest',ic:'cup',name:'休息',title:'ひと息つく',txt:`スタミナ+${2+(ch.id==='bouncer'?1:0)}${t==='B'?'。アジトならリソースも全回復':''}`,meta:`スタミナ ${ch.life}/${ch.maxLife}`,tags:ch.id==='bouncer'?[['ab','★タフネス 回復+1']]:[],ok:restOk,why:isBurned(ch.r,ch.c)?'ガサ入れされて使えない':'アジト・バーでのみ'});
   return C}
 function renderHL(){if(S&&S.phase==='escape')return;clearHL();if(!S||S.phase!=='adventure')return;const ch=cur();
@@ -2245,13 +2247,13 @@ let BUSY=false;
 async function guard(fn){if(BUSY)return;BUSY=true;renderPanel();try{await fn()}catch(e){console.error(e);log('<span class="r">エラー: '+esc(e.message)+'</span>')}BUSY=false;if(S&&S.phase!=='end')renderAll();if(typeof schedPump==='function')schedPump(0)}
 
 function beginTurn(){if(S.phase!=='adventure')return;const ch=cur();if(ch.dead){nextTurn();return}
-  S.step='roll';S.moveDice=[];S.boost=0;S.stats.turns++;focusOn(ch);renderAll();log(`▶ ${nm(ch)}（${ch.job}）の手番`);SFX.turn();toast(ch,'NEXT');
+  S.step='roll';S.moveDice=[];S.boost=0;S.stats.turns++;focusOn(ch);renderAll();log(`▶ ${nm(ch)}の手番`);SFX.turn();toast(ch,'NEXT');
   if(ch.cpu)setTimeout(()=>runGuard(cpuTurn),1100*SPEED*TEMPO);netTurnHash();schedPump(0)}
 function nextTurn(){if(S.phase!=='adventure')return;S.turn=(S.turn+1)%S.chars.length;if(S.turn===0){S.round++;log(`<span class="rd">ROUND ${S.round}</span>`)}beginTurn()}
 
 function cmdRoll(){SFX.click();guard(doRoll)}
 async function doRoll(){const ch=cur();
-  const vals=await plainRoll(moveN(ch),{purpose:'移動ダイス',title:`${ch.name}（${ch.job}）`,sub:'出た目を1つずつ使って隣のマスへ進む。<b>6は誰かに目撃される</b>',mark:v=>v===6?'r':'g',label:v=>v===6?'目撃！':String(v),
+  const vals=await plainRoll(moveN(ch),{purpose:'移動ダイス',title:`${ch.name}`,sub:'出た目を1つずつ使って隣のマスへ進む。<b>6は誰かに目撃される</b>',mark:v=>v===6?'r':'g',label:v=>v===6?'目撃！':String(v),
     breakTxt:v=>v===6?'警戒+1':'移動用',
     legend:legendHTML([{f:[1,2,3,4,5],c:'g',t:'移動に使える'},{f:[6],c:'r',t:'警戒レベル+1（移動にも使える）'}],'出目の見方',`<div class="pt sm">1マス進むのに必要な出目</div><div class="lg">大通り ${md('2+')}　繁華街 ${md('3+')}　裏路地 ${md((ch.id==='driver'?4:5)+'+')}</div>`),
     table:[{k:'6なし',t:'目撃なし。そのまま移動へ',c:'g',test:v=>!v.includes(6)},{k:'6あり',t:`6の数だけ警戒レベル上昇${ch.id==='disguise'?'（変装師は1つ無視）':ch.id==='driver'?'（運び屋は裏路地にいれば無視）':''}`,c:'r',test:v=>v.includes(6)}],
@@ -2291,8 +2293,8 @@ async function doAction(a){const ch=cur();const boost=S.boost;S.boost=0;
 }
 function spendBoost(ch,b){if(b>0&&ch.res.type==='boost'){b=Math.min(b,ch.resv);ch.resv-=b;log(`${nm(ch)}：${ch.res.name}でダイス+${b}`);renderSquad();return b}return 0}
 async function adventure(ch,boost){const t=terr(ch.r,ch.c);const base=ch.adv[t==='C'?0:1];const b=spendBoost(ch,boost);const bf=takeBuff([ch]);const n=base+b+bf.dice;
-  const src=[{t:`小仕事${base}`,who:ch.job,n:base,c:base<=1?'weak':'',col:ch.css},...bf.src];if(b)src.push({t:`${ch.res.name}+${b}`,n:b,c:'boost'});
-  const s=await peakRoll(n,{purpose:'小仕事の判定',title:`${ch.name}（${ch.job}）`,sub:`${TERRAIN[t].name}でひと稼ぎ。<b>成功数2以上で経験+1</b>`,need:2,noFumble:ch.id==='pickpocket'||bf.noF,table:T_ADV,src,onNoFumble:()=>abilityFire(ch,'1の目をファンブルにしなかった',{u:'防いだファンブル',v:1}),
+  const src=[{t:`小仕事${base}`,who:ch.name,n:base,c:base<=1?'weak':'',col:ch.css},...bf.src];if(b)src.push({t:`${ch.res.name}+${b}`,n:b,c:'boost'});
+  const s=await peakRoll(n,{purpose:'小仕事の判定',title:`${ch.name}`,sub:`${TERRAIN[t].name}でひと稼ぎ。<b>成功数2以上で経験+1</b>`,need:2,noFumble:ch.id==='pickpocket'||bf.noF,table:T_ADV,src,onNoFumble:()=>abilityFire(ch,'1の目をファンブルにしなかった',{u:'防いだファンブル',v:1}),
     explain:s=>s<=-1?{kind:'bad',head:'追われた！',text:'1ダメージを受ける'}:s===0?{kind:'meh',head:'収穫なし',text:'何も起きなかった'}:s===1?{kind:'meh',stamp:'CLOSE CALL',head:'ギリギリ成功',text:'経験+1、ただし1ダメージ'}:{kind:'good',level:1,head:'小仕事 成功',text:'経験+1'}});
   if(s<=-1){log(`<span class="r">小仕事失敗（成功${s}）：追われて1ダメージ</span>`);await hurt(ch,1)}
   else if(s===0)log('小仕事：収穫なし');
@@ -2303,7 +2305,7 @@ async function challenge(ch,qi,boost){const q=S.quests[qi];let helpers=S.chars.f
   if(helpers.length&&!ch.cpu){const v=await askModal(ch,`<h3>協力して下準備する？</h3><p>同じ標的に隣接している団員：${helpers.map(nm).join('、')}</p><p>協力すると全員のダイスを合わせて振れます。成功時の経験は参加者それぞれ<b>+1</b>（単独なら<b>+2</b>）。</p>`,
     [{label:`全員で協力する`,sub:`ダイス ${dicePool(ch,q,helpers)}個`,v:true},{label:`単独で挑む（ダイス ${dicePool(ch,q,[])}個）`,v:false,cls:'ghost'}]);if(!v)helpers=[]}
   const b=spendBoost(ch,boost);const party=[ch,...helpers];const n=dicePool(ch,q,helpers)+b;const need=Math.max(0,q.q.diff-q.progress);const bf=takeBuff(party);
-  const src=[];party.forEach(c=>{const st=bestSt(c,q);src.push({t:`${STATN[st]}${c[st]}`,who:`${c.job}`,n:c[st],c:c[st]<=1?'weak':'',col:c.css})});
+  const src=[];party.forEach(c=>{const st=bestSt(c,q);src.push({t:`${STATN[st]}${c[st]}`,who:c.name,n:c[st],c:c[st]<=1?'weak':'',col:c.css})});
   const hk=party.find(c=>c.id==='hacker'),ph=party.find(c=>c.id==='phantom');
   if(q.q.stats.includes('hck')&&hk)src.push({t:'ハッキング+1',who:'ハッカー',n:1,c:'ability',col:hk.css});
   if(helpers.length&&ph)src.push({t:'指揮+2',who:'怪盗',n:2,c:'ability',col:ph.css});
@@ -2343,7 +2345,7 @@ async function gainXP(ch,n){ch.xp+=n;while(ch.lv<5&&ch.xp>=XP_LV[ch.lv+1]){ch.lv
     Object.entries(g).forEach(([k,v])=>{if(k==='life'){ch.maxLife+=v;ch.life+=v}else if(k==='res'){ch.resMax+=v;ch.resv+=v}else if(k==='adv'){ch.adv=ch.adv.map(x=>x+v)}else ch[k]+=v});
     const desc=Object.entries(g).map(([k,v])=>GAINN[k]+'+'+v).join('　');
     burst(pieceWorld(ch),0xf4dc9f,80,4,.45,1.4,3);log(`<span class="y">${esc(ch.name)} レベル${ch.lv}！ ${desc}</span>`);renderSquad();cardFx(ch,'good');celebrate(2);
-    await banner('LEVEL UP',`${esc(ch.name)}（${ch.job}）Lv${ch.lv}　${desc}`,BC.gold,2400)}
+    await banner('LEVEL UP',`${esc(ch.name)}Lv${ch.lv}　${desc}`,BC.gold,2400)}
   renderSquad()}
 async function hurt(ch,amt,{instant=false,noGuard=false}={}){if(ch.dead||amt<=0)return;
   if(!noGuard&&S.phase!=='end'){const bo=await bodyguard(ch,instant?ch.life:amt);if(bo){log(`<span style="color:${bo.css}">✦ ${esc(bo.name)}が${esc(ch.name)}の身代わりになった</span>`);return hurt(bo,instant?Math.min(ch.life,bo.life-1):amt,{noGuard:true})}}
@@ -2412,7 +2414,7 @@ async function enterFinal(byGauge,starter){if(S.phase!=='adventure')return;if(wi
   if(byGauge){log('<span class="r">準備不足の強行突入：警備ドローン巡回×2</span>');await patrol();if(S.phase!=='final')return;await patrol();if(S.phase!=='final')return}
   S.turn=starter;if(S.chars[S.turn].dead)advanceFinal(false);
   S.lockIn=true;setTimeout(beginFinalTurn,700*SPEED*TEMPO)}
-function beginFinalTurn(){if(S.phase!=='final')return;const ch=cur();if(ch.dead){advanceFinal(true);return}S.vt=(S.vt||0)+1;S.boost=0;S.push=false;S.stats.turns++;renderAll();log(`▶ ${nm(ch)}（${ch.job}）の番`);SFX.turn();toast(ch,'NEXT');
+function beginFinalTurn(){if(S.phase!=='final')return;const ch=cur();if(ch.dead){advanceFinal(true);return}S.vt=(S.vt||0)+1;S.boost=0;S.push=false;S.stats.turns++;renderAll();log(`▶ ${nm(ch)}の番`);SFX.turn();toast(ch,'NEXT');
   cam.want.set(pieces[ch.id].g.position.x*.3,4.3,1.5);
   S.lockIn=true;runGuard(etaTick).then(()=>{S.lockIn=false;if(S.phase!=='final')return;if(ch.dead){advanceFinal(true);return}renderAll();
     if(ch.cpu)setTimeout(()=>runGuard(cpuFinal),1200*SPEED*TEMPO);netTurnHash();schedPump(0)})}
@@ -2434,8 +2436,8 @@ async function finalAttack(){const ch=cur();const sel=S.vsel||vOptions(ch).sort(
   const base=ch[stat],tool=stat==='bat'?S.bonus.bat:0,crk=ch.id==='cracker'&&stat==='bat'?1:0,hk=vJob(ch,stat)&&!crk?1:0;
   const n=base+tool+crk+hk+b+scan+bf.dice+(push?3:0);const chain=S.chain;S.chain=0;const cb=S.crackerBonus||0;S.crackerBonus=0;
   const need=vBase()+(spec?0:1);
-  const src=[{t:`${STATN2[stat]}${base}`,who:ch.job,n:base,c:base<=2?'weak':'',col:ch.css}];if(tool)src.push({t:`ツール+${tool}`,who:'報酬',n:tool,c:'reward'});
-  if(crk)src.push({t:'金庫破りの勘+1',who:'金庫破り',n:1,c:'ability',col:ch.css});if(hk)src.push({t:`${ch.skill}+1`,who:ch.job,n:1,c:'ability',col:ch.css});if(scan)src.push({t:'金庫解析+2',who:'連携技',n:2,c:'ability',col:'#f4dc9f'});src.push(...bf.src);if(b)src.push({t:`${ch.res.name}+${b}`,n:b,c:'boost'});if(push)src.push({t:'こじ開け+3',who:'強引',n:3,c:'weak'});
+  const src=[{t:`${STATN2[stat]}${base}`,who:ch.name,n:base,c:base<=2?'weak':'',col:ch.css}];if(tool)src.push({t:`ツール+${tool}`,who:'報酬',n:tool,c:'reward'});
+  if(crk)src.push({t:'金庫破りの勘+1',who:'金庫破り',n:1,c:'ability',col:ch.css});if(hk)src.push({t:`${ch.skill}+1`,who:ch.name,n:1,c:'ability',col:ch.css});if(scan)src.push({t:'金庫解析+2',who:'連携技',n:2,c:'ability',col:'#f4dc9f'});src.push(...bf.src);if(b)src.push({t:`${ch.res.name}+${b}`,n:b,c:'boost'});if(push)src.push({t:'こじ開け+3',who:'強引',n:3,c:'weak'});
   if(push){if(S.eta>0){S.eta--;renderVhud()}await banner('強引にこじ開ける','ダイス+3。物音で警備隊の到着が1手番早まる',BC.red,1600)}
   await banner(LT[t].name,`${esc(ch.name)}が${STATN2[stat]}で${LT[t].verb}${spec?'':'（専門外：必要+1）'}`,LT[t].col,1300);
   if(crk){abilityFire(ch,'物理錠の判定でダイス+1',{u:'追加ダイス',v:1});await wait(400)}if(hk){abilityFire(ch,`${LT[stat].name}の判定でダイス+1`,{u:'追加ダイス',v:1});await wait(400)}
@@ -2443,7 +2445,7 @@ async function finalAttack(){const ch=cur();const sel=S.vsel||vOptions(ch).sort(
   const P=pieces[ch.id];const from=P.g.position.clone();const front=new THREE.Vector3(from.x*.45,.45,from.z*.45-1.2);
   await tween(420,k=>{P.g.position.lerpVectors(from,front,k);P.g.position.y+=Math.sin(k*Math.PI)*.8});
   const bonus=chain+cb;const bl=chain&&cb?'連携+金庫の声':cb?'金庫の声':'連携';
-  const s=await peakRoll(n,{purpose:`金庫破り　${LT[t].name}`,title:`${ch.name}（${ch.job}）`,ladder:[[2,'連携+2'],[need-1,'1段解除（1ダメージ）'],[need,'1段解除'],[need+1,'2段解除'],[need+2,'3段解除']].filter((x,i,a)=>i===0||x[0]>a[0][0]),tense:true,
+  const s=await peakRoll(n,{purpose:`金庫破り　${LT[t].name}`,title:`${ch.name}`,ladder:[[2,'連携+2'],[need-1,'1段解除（1ダメージ）'],[need,'1段解除'],[need+1,'2段解除'],[need+2,'3段解除']].filter((x,i,a)=>i===0||x[0]>a[0][0]),tense:true,
     sub:`${push?'<b style="color:#ff8a9a">強引にこじ開ける：成功数1以下で巡回を呼ぶ</b>。':''}${VSTAGE[vStage()].name}の<b style="color:${LT[t].col}">${LT[t].name}</b>に${STATN2[stat]}で挑む${spec?'':'（専門外）'}。<b>成功数${need}で1段、${need+1}で2段、${need+2}以上で3段解除</b>（残りロック${S.locks}）${bonus?`　${bl}+${bonus}込み`:''}`,bonus,bonusLabel:bl,need,noFumble:bf.noF,noFumbleOne:S.bonus.noFumble,explain:x=>finalExplain(x,need),table:T_FINALf(need),src});
   const back=()=>tween(420,k=>P.g.position.lerpVectors(front,from,k));
   const first=()=>{if(!S.chars.some(c=>c.st.firstLock))ch.st.firstLock=true};
@@ -2500,8 +2502,8 @@ async function ceremony(win,why){if(window.__STOPEND){window.__RES={type:win?'wi
   const mvp=maxBy(c=>honorOf(c).pts),greed=maxBy(c=>c.st.drop+c.st.lost),shade=maxBy(c=>c.st.plan),duo=maxBy(c=>c.st.combo);
   const names=a=>a.map(c=>`<b style="color:${c.css}">${esc(c.name)}</b>`).join('・');
   let d=.5;const D=()=>{const v=d;d+=.55;return v};
-  const ctHTML=H.map(h=>`<div class="ct rv ${h.okc?'ok':'ng'}" style="--d:${D()}s;--c:${h.c.css}"><img src="${AV[h.c.id]||''}" alt=""><div><b>${esc(h.c.name)}<small>${h.c.job}</small></b><em>${h.ct.name}</em><span>${h.ct.text}</span></div><i>${h.okc?'達成 +'+h.ct.pts:'未達成'}</i></div>`).join('');
-  const abHTML=S.chars.map(c=>{const a=(S.abil||{})[c.id];return`<div style="--c:${c.css}"><img src="${AV[c.id]||''}" alt=""><span><b style="font-family:var(--f-body);font-size:13px;color:${c.css}">${esc(c.name)}（${c.job}）</b><br>★${c.skill}${a?`：${a.u} ${a.sum}`:'：発動なし'}</span><b>${a?a.n:0}回</b></div>`}).join('');
+  const ctHTML=H.map(h=>`<div class="ct rv ${h.okc?'ok':'ng'}" style="--d:${D()}s;--c:${h.c.css}"><img src="${AV[h.c.id]||''}" alt=""><div><b>${esc(h.c.name)}</b><em>${h.ct.name}</em><span>${h.ct.text}</span></div><i>${h.okc?'達成 +'+h.ct.pts:'未達成'}</i></div>`).join('');
+  const abHTML=S.chars.map(c=>{const a=(S.abil||{})[c.id];return`<div style="--c:${c.css}"><img src="${AV[c.id]||''}" alt=""><span><b style="font-family:var(--f-body);font-size:13px;color:${c.css}">${esc(c.name)}</b><br>★${c.skill}${a?`：${a.u} ${a.sum}`:'：発動なし'}</span><b>${a?a.n:0}回</b></div>`}).join('');
   const aw=[];
   if(shade.length)aw.push(['縁の下賞','段取りをいちばん稼いだ',names(shade),`段取り ${shade[0].st.plan}`]);
   if(duo.length)aw.push(['名コンビ賞','連携技をいちばん決めた',names(duo),`連携 ${duo[0].st.combo}回`]);
@@ -2571,7 +2573,7 @@ async function useTrump(c,opt={}){const T=TRUMP[c.id];spendPlan(T.cost);S.trumps
     const q=S.quests[qi];if(!q.revealed){q.revealed=true;drawHolo(qi);await flipCard(qi,true);SFX.reveal()}q.q.diff=Math.max(1,q.q.diff-1);drawHolo(qi);burst(cardWorld(qi),0x7ea6ff,60,3,.4,1.3);
     say(c,`「${q.q.name}」の裏口を掴んだ`);log(`<span class="y">裏ルート：「${q.q.name}」必要成功数−1</span>`)}
   if(c.id==='driver'){let mate=opt.mate;const cand=S.chars.filter(o=>o!==c&&!o.dead&&hexDist(o.r,o.c,c.r,c.c)>1);
-    if(!mate){if(!c.cpu&&cand.length>1){const v=await askModal(c,`<h3>逃走車待機：誰を呼ぶ？</h3><p>選んだ仲間を自分の隣のマスへ運びます。</p>`,cand.map((o,i)=>({label:`${esc(o.name)}（${o.job}）`,v:i})));mate=cand[v]}else mate=cand[0]}
+    if(!mate){if(!c.cpu&&cand.length>1){const v=await askModal(c,`<h3>逃走車待機：誰を呼ぶ？</h3><p>選んだ仲間を自分の隣のマスへ運びます。</p>`,cand.map((o,i)=>({label:`${esc(o.name)}`,v:i})));mate=cand[v]}else mate=cand[0]}
     const spots=opt.spot?[opt.spot]:freeAdj(c);const [r,cc]=spots.sort((a,b)=>('BS'.includes(terr(b[0],b[1]))?1:0)-('BS'.includes(terr(a[0],a[1]))?1:0))[0];mate.r=r;mate.c=cc;await placePiece(mate);reflowAll();say(c,`${mate.name}、乗れ！`)}
   if(c.id==='disguise'){S.step='warp';say(c,'制服ならいくらでもある')}
   renderAll()}
@@ -2606,7 +2608,7 @@ async function doCombo(ch,id){const cb=COMBOS.find(x=>x.id===id),p=partnerOf(cb,
   if(id==='slip'){ch.buff.slip=p.buff.slip=true;say(ch,'逃げ道はもう用意してある')}
   renderAll()}
 // 「次の判定」に乗るバフをまとめて消費する
-function takeBuff(chs){let dice=0,noF=false;const src=[];chs.forEach(c=>{if(c.buff.dice){dice+=c.buff.dice;src.push({t:`連携+${c.buff.dice}`,who:c.job,n:c.buff.dice,c:'ability',col:'#f4dc9f'});c.buff.dice=0}if(c.buff.noF){noF=true;c.buff.noF=false}});return{dice,noF,src}}
+function takeBuff(chs){let dice=0,noF=false;const src=[];chs.forEach(c=>{if(c.buff.dice){dice+=c.buff.dice;src.push({t:`連携+${c.buff.dice}`,who:c.name,n:c.buff.dice,c:'ability',col:'#f4dc9f'});c.buff.dice=0}if(c.buff.noF){noF=true;c.buff.noF=false}});return{dice,noF,src}}
 
 /* ---------- お宝 ---------- */
 const LOOTM={};
@@ -2627,7 +2629,7 @@ async function takeLoot(ch,L,free=false){L.taken=true;const T=LOOT_T[L.t];ch.bag
   if(ch.cpu)say(ch,L.t==='x'?'……これが「オーロラの涙」か':pick(['ついでに頂いておく','いい拾い物だ','ポケットに入れておこう']));
   await dealCard({kicker:`LOOT ${T.name}　お宝`,icon:'coin',title:L.name,text:`持ち帰れば名誉点 ${L.val}\n重さ ${L.wt}（4以上で移動ダイス−1）`,meta:'換金・買収・仲間に渡すこともできる',color:T.css})}
 async function lootAction(ch,L,boost){const b=spendBoost(ch,boost);const bf=takeBuff([ch]);const n=ch.scn+b+bf.dice;
-  const src=[{t:`潜入${ch.scn}`,who:ch.job,n:ch.scn,c:ch.scn<=1?'weak':'',col:ch.css},...bf.src];if(b)src.push({t:`${ch.res.name}+${b}`,n:b,c:'boost'});
+  const src=[{t:`潜入${ch.scn}`,who:ch.name,n:ch.scn,c:ch.scn<=1?'weak':'',col:ch.css},...bf.src];if(b)src.push({t:`${ch.res.name}+${b}`,n:b,c:'boost'});
   if(ch.scn<=1){abilityFire(ch,`潜入${ch.scn}でお宝を狙う（警報を鳴らしやすい）`,{weak:true});await wait(400)}
   const s=await peakRoll(n,{purpose:'お宝を盗む判定',title:L.name,sub:`潜入で判定。<b>成功数${L.diff}以上なら静かに盗める</b>。足りなくてもお宝は手に入るが、<b style="color:#ff8a9a">警戒レベル+1</b>`,need:L.diff,src,noFumble:bf.noF,
     table:[{k:L.diff+'+',t:'静かに盗み出す',c:'g',test:s=>s>=L.diff},{k:'それ未満',t:'手に入るが、警報が鳴る（警戒+1）',c:'r',test:s=>s<L.diff}],
@@ -2742,9 +2744,9 @@ async function escapePhase(){setCamFree(false);S.phase='escape';S.escBonus=0;cle
     const live=crew.filter(c=>!c.caught&&!c.dead);
     for(const c of live){if(c.caught||c.dead)continue;S.turn=S.chars.indexOf(c);c.escAt=k;renderAll();renderEhud();
       const need=escNeed(c,cp);const bf=takeBuff([c]);const base=c[cp.stat];const n=base+2+S.escBonus+bf.dice;
-      const src=[{t:`${STATN2[cp.stat]}${base}`,who:c.job,n:base,col:c.css},{t:'全力疾走+2',n:2,c:'reward'},...bf.src];if(S.escBonus)src.push({t:'逃走車+1',who:'運び屋',n:1,c:'ability',col:'#ff5c74'});
+      const src=[{t:`${STATN2[cp.stat]}${base}`,who:c.name,n:base,col:c.css},{t:'全力疾走+2',n:2,c:'reward'},...bf.src];if(S.escBonus)src.push({t:'逃走車+1',who:'運び屋',n:1,c:'ability',col:'#ff5c74'});
       const w=wtOf(c);const last=(c.escFail||0)>=1;
-      const s=await peakRoll(n,{purpose:`逃走　関門${k+1}　${cp.name}`,pc:'blue',title:`${c.name}（${c.job}）`,sub:`${ESC_FX[k].desc}。<b>成功数${need}以上で通過</b>${w>=2?`（荷物の重さ${w}で必要+${Math.floor(w/2)}）`:''}。${last?'<b style="color:#ff8a9a">次に失敗したら逮捕</b>':'失敗するとスタミナ−1、2回失敗で逮捕'}`,need,src,noFumble:bf.noF,quick:true,
+      const s=await peakRoll(n,{purpose:`逃走　関門${k+1}　${cp.name}`,pc:'blue',title:`${c.name}`,sub:`${ESC_FX[k].desc}。<b>成功数${need}以上で通過</b>${w>=2?`（荷物の重さ${w}で必要+${Math.floor(w/2)}）`:''}。${last?'<b style="color:#ff8a9a">次に失敗したら逮捕</b>':'失敗するとスタミナ−1、2回失敗で逮捕'}`,need,src,noFumble:bf.noF,quick:true,
         table:[{k:need+'+',t:'通過',c:'g',test:s=>s>=need},{k:need>0?(need-1)+'以下':'−',t:last?'逮捕（お宝は没収）':'失敗：スタミナ−1',c:'r',test:s=>s<need}],
         explain:s=>s>=need?{kind:'good',level:1,stamp:'CLEAR',head:ESC_FX[k].ok,text:`${cp.name}を通過`}:c.buff.slip?{kind:'meh',stamp:'SLIP',head:'すり抜け！',text:'連携技で失敗を帳消し'}:{kind:'bad',level:last?2:1,stamp:last?'BUSTED':'SPOTTED',head:last?'逮捕……':ESC_FX[k].ng,text:last?'お宝は没収された':'スタミナ−1。あと1回失敗すると逮捕'}});
       if(s>=need){log(`<span class="g">${esc(c.name)}：${ESC_FX[k].ok}（${cp.name}通過）</span>`);await escAnim(c,k,'pass',live);renderEhud();if(Math.random()<.35)say(c,pick([['ここは俺の庭だ','レーザーの隙間なんて見え見えだ'],['影から影へ。誰にも見られてない','ライトの癖は読めてる'],['どけ！通らせてもらう','バリケードなんて飾りだ']][k]));continue}
@@ -2767,7 +2769,7 @@ async function retreatPhase(){S.chars.forEach(c=>{if(c.dead){c.caught=true;c.st.
   const crew=S.chars.filter(c=>!c.dead);crew.forEach(c=>{if(!c.bag.length)c.escaped=true});const rs=crew.filter(c=>c.bag.length);if(!rs.length)return;
   S.phase='escape';renderAll();await banner('撤収','お宝を抱えて裏口から逃げる',BC.blue,2200);
   for(const c of rs){S.turn=S.chars.indexOf(c);const need=Math.floor(wtOf(c)/2);const n=c.scn+2;
-    const s=await peakRoll(n,{purpose:'撤収の判定',title:`${c.name}（${c.job}）`,sub:`潜入で判定。<b>成功数${need}以上でお宝を持って逃げ切る</b>`,need,quick:true,src:[{t:`潜入${c.scn}`,who:c.job,n:c.scn,col:c.css},{t:'全力疾走+2',n:2,c:'reward'}],
+    const s=await peakRoll(n,{purpose:'撤収の判定',title:`${c.name}`,sub:`潜入で判定。<b>成功数${need}以上でお宝を持って逃げ切る</b>`,need,quick:true,src:[{t:`潜入${c.scn}`,who:c.name,n:c.scn,col:c.css},{t:'全力疾走+2',n:2,c:'reward'}],
       explain:s=>s>=need?{kind:'good',level:1,head:'撤収成功',text:'お宝は守った'}:{kind:'bad',level:1,head:'逮捕',text:'お宝は没収'}});
     if(s>=need)c.escaped=true;else{c.caught=true;c.st.down=true;loseBag(c)}}}
 
@@ -2992,7 +2994,7 @@ async function vaultDraw(){if(window.__FAST)return;const el=$('#draw');const V=v
   await drawWait(el,isHuman()?0:6000);el.className=''}
 async function contractDraw(){if(window.__FAST)return;const el=$('#draw');const humans=S.chars.filter(mine);
   el.innerHTML=`<div class="dw-box wide"><div class="dw-k">SECRET CONTRACT</div><div class="dw-t">裏の依頼を配ります</div><div class="dw-s">達成すると表彰式で名誉点ボーナス。<b>自分のカードだけ</b>をめくってください（他の人は見ないで）</div>
-    <div class="dw-cards">${S.chars.map((c,i)=>{const ct=CONTRACTS.find(x=>x.id===c.contract);return`<div class="ctc ${mine(c)?'':'cpu'}" data-ci="${i}" style="--c:${c.css};animation-delay:${i*.18}s"><div class="ctc-in"><div class="ctc-b"><img src="${AV[c.id]||''}" alt=""><b>${esc(c.name)}</b><small>${c.job}</small><span>${c.cpu?'CPU：抽選済み':mine(c)?'タップでめくる':esc(memberName(c.owner))+'が確認中'}</span></div>
+    <div class="dw-cards">${S.chars.map((c,i)=>{const ct=CONTRACTS.find(x=>x.id===c.contract);return`<div class="ctc ${mine(c)?'':'cpu'}" data-ci="${i}" style="--c:${c.css};animation-delay:${i*.18}s"><div class="ctc-in"><div class="ctc-b"><img src="${AV[c.id]||''}" alt=""><b>${esc(c.name)}</b><span>${c.cpu?'CPU：抽選済み':mine(c)?'タップでめくる':esc(memberName(c.owner))+'が確認中'}</span></div>
       <div class="ctc-f"><small>裏の依頼</small><b>${ct.name}</b><p>${ct.text}</p><em>達成で +${ct.pts}</em><span>もう一度タップで伏せる</span></div></div></div>`}).join('')}</div>
     <button class="btn big" id="dwOk">${humans.length?'確認した。作戦開始':'作戦開始'}</button></div>`;
   el.className='show';SFX.deal();S.chars.forEach((c,i)=>setTimeout(()=>SFX.deal(),i*180));
@@ -3006,7 +3008,7 @@ async function orderDraw(){const n=S.chars.length;let vals;do{vals=S.chars.map((
   if(window.__FAST){apply();return}
   const el=$('#draw');const humans=S.chars.some(mine);
   el.innerHTML=`<div class="dw-box wide"><div class="dw-k">TURN ORDER</div><div class="dw-t">手番の順番を決める</div><div class="dw-s">全員でダイスを1個ずつ振り、<b>大きい目の人から</b>手番を行います</div>
-    <div class="od-row">${S.chars.map((c,i)=>`<div class="od" data-i="${i}" style="--c:${c.css}"><img src="${AV[c.id]||''}" alt=""><b>${esc(c.name)}</b><small>${c.job}${c.cpu?'・CPU':''}</small><div class="od-dw">${dieFace(1)}</div><em class="od-rk"></em></div>`).join('')}</div>
+    <div class="od-row">${S.chars.map((c,i)=>`<div class="od" data-i="${i}" style="--c:${c.css}"><img src="${AV[c.id]||''}" alt=""><b>${esc(c.name)}</b><small>${c.cpu?'CPU':''}</small><div class="od-dw">${dieFace(1)}</div><em class="od-rk"></em></div>`).join('')}</div>
     <div class="od-seq"></div><button class="btn big" id="odOk" style="visibility:hidden">作戦開始</button></div>`;
   el.className='show';const cards=[...el.querySelectorAll('.od')];SFX.rattle();
   const stopAt=cards.map((_,i)=>900+i*450);const t0=performance.now();let last={};
