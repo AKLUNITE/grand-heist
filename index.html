@@ -808,7 +808,7 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
   #top.menu{z-index:50!important}
   #fabMenu{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:46;width:38px;height:38px;border-radius:50%;border:1px solid var(--line2);background:rgba(10,10,16,.92);color:var(--ivory);font-size:18px;box-shadow:0 6px 16px rgba(0,0,0,.6)}
   body:has(#diceLayer.show) #fabMenu,body:has(#draw.show) #fabMenu{display:grid;place-items:center}
-  body:has(#diceLayer.show) #diceHead{padding-right:40px;padding-left:40px}
+  body:has(#diceLayer.show) #dicePurpose,body:has(#diceLayer.show) #diceTitle{margin-left:36px;margin-right:36px}
   /* 団員の列：幅に収める（縦並びの小さなチップ） */
   #crew{overflow:visible!important;gap:3px!important;padding:2px 0 14px!important}
   #crew .carr{display:none}
@@ -3264,14 +3264,15 @@ const JB=(()=>{const HIRA=/[ぁ-ゟ]/,SMALL=/[ぁぃぅぇぉっゃゅょゎァ�
   function can(a,b){if(!a||!b)return false;if(CLOSE.test(b)||SMALL.test(b))return false;if(AFTER.test(a))return true;if(BEFORE.test(b))return!BEFORE.test(a);
     if(AN.test(a)&&AN.test(b))return false;if(HIRA.test(a)&&!HIRA.test(b))return true;return false}
   const SKIP=/^(SCRIPT|STYLE|TEXTAREA|INPUT|OPTION|SELECT|CANVAS|svg|text|tspan|title)$/;
-  function proc(t){const v=t.nodeValue;if(!v||v.length<4)return;const p=t.parentNode;if(!p||SKIP.test(p.nodeName)||p.closest&&p.closest('[data-nowbr],svg'))return;
+  function proc(t){const v=t.nodeValue;if(!v||v.length<4||!/\S/.test(v))return;const p=t.parentNode;if(!p||p.nodeType!==1||SKIP.test(p.nodeName)||p.closest('[data-nowbr],svg'))return;
+    const d=getComputedStyle(p).display;if(/flex|grid/.test(d)||getComputedStyle(p).whiteSpace==='nowrap')return;
     const cut=[];for(let i=1;i<v.length;i++)if(can(v[i-1],v[i]))cut.push(i);if(!cut.length)return;
     const f=document.createDocumentFragment();let st=0;cut.forEach(i=>{f.appendChild(document.createTextNode(v.slice(st,i)));f.appendChild(document.createElement('wbr'));st=i});f.appendChild(document.createTextNode(v.slice(st)));p.replaceChild(f,t)}
   function walk(n){if(n.nodeType===3){proc(n);return}if(n.nodeType!==1||SKIP.test(n.nodeName)||n.hasAttribute&&n.hasAttribute('data-nowbr'))return;
     const tw=document.createTreeWalker(n,NodeFilter.SHOW_TEXT);const arr=[];while(tw.nextNode())arr.push(tw.currentNode);arr.forEach(proc)}
-  const FIT='#diceTitle,#myturn .mt-t,.dw-t,#diceResult .head,#banner .t,#cutin .ci-t b,#deal .dt';
-  function fit(el){if(!el||!el.isConnected)return;el.style.fontSize='';el.style.whiteSpace='nowrap';const w=el.clientWidth;if(!w){el.style.whiteSpace='';return}
-    let fs=parseFloat(getComputedStyle(el).fontSize),min=Math.max(13,fs*.62);while(el.scrollWidth>w+1&&fs>min){fs-=1;el.style.fontSize=fs+'px'}
+  const FIT='#diceSub,#diceTitle,#myturn .mt-t,.dw-t,#diceResult .head,#banner .t,#cutin .ci-t b,#deal .dt';
+  function fit(el){if(!el||!el.isConnected)return;el.style.removeProperty('font-size');el.style.whiteSpace='nowrap';const w=el.clientWidth;if(!w){el.style.whiteSpace='';return}
+    let fs=parseFloat(getComputedStyle(el).fontSize),min=el.id==='diceSub'?Math.min(fs,10.5):Math.max(13,fs*.62);while(el.scrollWidth>w+1&&fs>min){fs=Math.max(min,fs-.5);el.style.setProperty('font-size',fs+'px','important')}
     if(el.scrollWidth>w+1)el.style.whiteSpace=''}
   let pend=new Set(),raf=0;
   function flush(){raf=0;obs.disconnect();pend.forEach(walk);pend.clear();document.querySelectorAll(FIT).forEach(fit);obs.observe(document.body,{childList:true,subtree:true})}
