@@ -818,7 +818,7 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
   #crew .cc .lf{height:3px;margin-top:2px}
   #crew .cc .bd{width:15px;height:15px;font-size:9px;top:-5px}#crew .cc .cbd{right:-3px}#crew .cc .tbd{left:-3px;right:auto}
   #crew .cc.now{transform:none}
-  #crew .cc .st{display:block!important;bottom:-12px;font-size:9px;padding:0 5px}
+  #crew .cc .st{display:none!important}
   /* 手番の順番：1画面に収める */
   #draw{padding:10px;box-sizing:border-box}#draw .dw-box{min-width:0;max-width:100%;box-sizing:border-box}#draw.show{grid-template-columns:minmax(0,1fr)}
   .dw-box.wide .dw-t{font-size:22px;margin:2px 0 4px}.dw-box.wide .dw-s{font-size:12px;margin-bottom:8px}
@@ -837,6 +837,13 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
   .ctc-b img{width:40px;height:40px}.ctc-b b{font-size:13px}.ctc-b span{margin-top:4px;font-size:10.5px}
   .ctc-f{padding:8px}.ctc-f b{font-size:15px}.ctc-f p{font-size:11px;line-height:1.4;margin:2px 0}.ctc-f span{display:none}
 }
+
+/* ===== 改行の整え ===== */
+.nb{display:inline-block;white-space:nowrap}
+body{word-break:keep-all;overflow-wrap:anywhere;line-break:strict}
+input,textarea,#log,.np-code b{word-break:normal}
+#bFollow{transition:opacity .2s}
+body:has(#myturn.show) #bFollow,body:has(#modal.show) #bFollow,body:has(#draw.show) #bFollow,body:has(#crewpop.show) #bFollow,body:has(#top.menu) #bFollow,body:has(#deal.show) #bFollow,body:has(#logdrawer.open) #bFollow{display:none!important}
 </style>
 
 <div id="app">
@@ -1917,7 +1924,7 @@ function legendHTML(rows,title='出目の見方',extra=''){return`<div class="pt
 function peakLegend(noF){return legendHTML([{f:[1],c:noF?'z':'r',t:noF?'±0（ファンブル無効）':'−1　ファンブル'},{f:[2,3],c:'z',t:'±0'},{f:[4,5],c:'g',t:'+1'},{f:[6],c:'y',t:'+1　もう1個振る'}],'出目の見方',
   `<div class="pt sm">振り足し（金のダイス）</div><div class="lg">${md(1,'gold')}<span>−1</span></div><div class="lg">${md('2〜5','gold')}<span>+1</span></div><div class="lg">${md(6,'gold')}<span>+1　さらに振る</span></div>`)}
 function diceOpen({purpose='',pc='',title='',sub='',legend='',table=null,tableTitle='結果表'}){DICE.on=true;DICE.fast=false;DICE.phase='rolling';$('#diceLayer').classList.add('show');diceClear();
-  const pe=$('#dicePurpose');pe.textContent=purpose;pe.className='purpose '+pc;pe.hidden=!purpose;$('#diceTitle').textContent=title;$('#diceSub').innerHTML=sub;
+  const pe=$('#dicePurpose');pe.textContent=purpose;pe.className='purpose '+pc;pe.hidden=!purpose;$('#diceTitle').innerHTML=title;$('#diceSub').innerHTML=sub;
   const lg=$('#diceLegend');lg.innerHTML=legend;lg.hidden=!legend;
   DICE.table=table;const tb=$('#diceTable');tb.hidden=!table;tb.innerHTML=table?`<div class="pt">${tableTitle}</div>`+table.map(r=>`<div class="tb ${r.c||''}"><b>${r.k}</b><span>${r.t}</span></div>`).join(''):''}
 function tableHL(v){if(!DICE.table)return null;let hit=null;document.querySelectorAll('#diceTable .tb').forEach((el,i)=>{const on=DICE.table[i].test(v);el.classList.toggle('on',on);if(on&&!hit)hit=DICE.table[i]});return hit}
@@ -1988,7 +1995,7 @@ function tallyHTML(n,need,hit,label='成功数'){const cls=n<0?'cold':(need!=nul
   return`<div class="lbl">${label}</div><div class="num ${cls}">${n>0?'+':''}${n}</div>${need!=null?`<div class="need">必要 ${need}</div>`:''}<div class="now">${hit?`いまの成功数なら → <span>${hit.t}</span>`:''}</div>${nx?`<div class="nx">あと <b>+${nx[0]-n}</b> で「${nx[1]}」</div>`:''}`}
 // ピークロール: 1=-1(ファンブル) 2-3=0 4-5=+1 6=+1&振り足し / 振り足しは 1=-1 2-5=+1 6=+1&さらに振り足し
 async function peakRoll(n,{purpose='',pc='',title,sub='',need=null,bonus=0,bonusLabel='連携',noFumble=false,explain=null,table=null,src=null,onNoFumble=null,quick=false,ladder=null,tense=false,noFumbleOne=false}={}){let nf1=noFumbleOne?1:0;
-  S.stats.rolls++;DICE.need=need;DICE.ladder=ladder;DICE.tense=tense;const od=need!=null&&S.showOdds!==false?`<span class="odds">成功率 約${pct(odds(n,need-bonus))}</span>`:'';diceOpen({purpose,pc,title:`${title}　ダイス×${n}`,sub:sub+od,legend:peakLegend(noFumble),table});let total=bonus;const tally=$('#diceTally');tally.innerHTML=tallyHTML(total,need,tableHL(total));
+  S.stats.rolls++;DICE.need=need;DICE.ladder=ladder;DICE.tense=tense;const od=need!=null&&S.showOdds!==false?`<span class="odds">成功率 約${pct(odds(n,need-bonus))}</span>`:'';diceOpen({purpose,pc,title:`${esc(title)}　<span class="nb">ダイス×${n}</span>`,sub:sub+od,legend:peakLegend(noFumble),table});let total=bonus;const tally=$('#diceTally');tally.innerHTML=tallyHTML(total,need,tableHL(total));
   $('#diceSrc').innerHTML=srcHTML(src);
   if(bonus)addBreak('',bonusLabel+' +'+bonus,'y');
   if(n>0){
@@ -2016,7 +2023,7 @@ async function peakRoll(n,{purpose='',pc='',title,sub='',need=null,bonus=0,bonus
   await holdResult(quick);diceClose();return total;
 }
 async function plainRoll(n,{purpose='',pc='',title,sub='',styles,mark=v=>v===6?'y':'z',label,explain=null,legend='',table=null,tableTitle='結果表',breakTxt=null}={}){
-  diceOpen({purpose,pc,title:`${title}　ダイス×${n}`,sub,legend,table,tableTitle});const vals=Array.from({length:n},d6);await readyThrow(n,styles);const ds=await throwDice(vals,-.7,styles);await wait(260);
+  diceOpen({purpose,pc,title:`${esc(title)}　<span class="nb">ダイス×${n}</span>`,sub,legend,table,tableTitle});const vals=Array.from({length:n},d6);await readyThrow(n,styles);const ds=await throwDice(vals,-.7,styles);await wait(260);
   for(const [i,d] of ds.entries()){const k=mark(d.v,i);glowDie(d,k);if(label)popAt(d,label(d.v,i),k);else if(k==='y')popAt(d,'6!','y');if(k==='y')SFX.crit();else if(k==='r')SFX.zero();
     addBreak(d.v,breakTxt?breakTxt(d.v,i):(label?label(d.v,i):''),k);await wait(DICE.fast?30:220)}
   const hit=tableHL(vals);if(hit)$('#diceTally').innerHTML=`<div class="now">結果 → <span>${hit.t}</span></div>`;
@@ -2135,7 +2142,7 @@ function renderPanel(){const el=$('#cmd');if(!S)return;el.dataset.step=S.phase==
     const st=$('#bStall');if(st)st.onclick=()=>{SFX.click();sendIn({k:'stall'})};return}
   if(S.step==='warp'){h+=`<p class="hint" style="color:#ff7fd0">✦ なりすまし入館：光っている3マス以内のマスをタップして移動（警戒は上がらない）</p>`;el.innerHTML=h;return}
   if(S.step==='roll'){const mv=ch.id==='disguise'?'<span class="tag ab" style="--c:'+ch.css+'">★なりすまし：6を1つ無視</span>':ch.id==='driver'?'<span class="tag ab" style="--c:'+ch.css+'">★抜け道：裏路地4+'+(terr(ch.r,ch.c)==='X'?'・裏路地にいるので6で目撃されない':'')+'</span>':ch.move<=2?'<span class="tag wk">▼足が遅い：移動ダイス2個</span>':ch.move>=4?'<span class="tag ab" style="--c:'+ch.css+'">★俊足：移動ダイス4個</span>':'';
-    let m=`<div class="mt-in" style="--c:${ch.css}"><img src="${AV[ch.id]||''}" alt=""><div class="mt-k">YOUR TURN</div><div class="mt-t"><b>${esc(ch.name)}</b>　あなたの番です</div><div class="mt-tags">${mv||'<span class="ax">標準の移動力（ダイス3個）</span>'}</div><p class="hint">移動ダイスを<b>${ch.move}個</b>振ります。<br><b style="color:#ff8a9a">6の目1つにつき警戒レベル+1</b>${ch.id==='disguise'?'（変装師は1つまで無視）':''}。<br>出目1つで隣へ1マス：大通り<b>2+</b>／繁華街<b>3+</b>／裏路地<b>${ch.id==='driver'?4:5}+</b></p><button class="btn big" id="bRoll">移動ダイスを振る ×${moveN(ch)}</button>${moveN(ch)<ch.move?'<p class="hint" style="color:#ff8a9a">荷物が重い（重さ4以上）：移動ダイス−1</p>':''}`+trumpBar('roll')+bagBtn(ch)+'</div>';mt.innerHTML=m;mt.classList.add('show');el.innerHTML=h+`<p class="hint" style="margin:4px 0">画面中央の「移動ダイスを振る」から手番を始めよう</p>`;$('#bRoll').onclick=()=>{SFX.click();sendIn({k:'roll'})};bindTrump();bindBag(ch);return}
+    let m=`<div class="mt-in" style="--c:${ch.css}"><img src="${AV[ch.id]||''}" alt=""><div class="mt-k">YOUR TURN</div><div class="mt-t"><b>${esc(ch.name)}</b>　<span class="nb">あなたの番です</span></div><div class="mt-tags">${mv||'<span class="ax">標準の移動力（ダイス3個）</span>'}</div><p class="hint">移動ダイスを<b>${ch.move}個</b>振ります。<br><b style="color:#ff8a9a">6の目1つにつき警戒レベル+1</b>${ch.id==='disguise'?'（変装師は1つまで無視）':''}。<br>出目1つで隣へ1マス：大通り<b>2+</b>／繁華街<b>3+</b>／裏路地<b>${ch.id==='driver'?4:5}+</b></p><button class="btn big" id="bRoll">移動ダイスを振る ×${moveN(ch)}</button>${moveN(ch)<ch.move?'<p class="hint" style="color:#ff8a9a">荷物が重い（重さ4以上）：移動ダイス−1</p>':''}`+trumpBar('roll')+bagBtn(ch)+'</div>';mt.innerHTML=m;mt.classList.add('show');el.innerHTML=h+`<p class="hint" style="margin:4px 0">画面中央の「移動ダイスを振る」から手番を始めよう</p>`;$('#bRoll').onclick=()=>{SFX.click();sendIn({k:'roll'})};bindTrump();bindBag(ch);return}
   if(S.step==='move'){const left=S.moveDice.filter(d=>!d.used).length;
     h+=`<div class="pool">${S.moveDice.map(d=>dieHTML(d.v,(d.v===6?' six':'')+(d.used?' used':''))).join('')}</div>
     <p class="hint">${left?'光っているマスをタップして進む。マスの数字が必要な出目で、足りる出目のうち一番小さいダイスを使います。':'ダイスを使い切りました。'}</p>
@@ -3250,6 +3257,27 @@ async function startGame(sel,seed){setSeed(seed);
 document.addEventListener('pointerdown',function once(){audioInit();if(AU.ctx.state==='suspended')AU.ctx.resume();if(!S)music(TRACK_TITLE);document.removeEventListener('pointerdown',once)},{once:true});
 
 // boot
+
+/* ---------- 日本語の改行：文節の区切りでだけ折り返し、見出しは1行に収める ---------- */
+const JB=(()=>{const HIRA=/[ぁ-ゟ]/,SMALL=/[ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮー々ゝゞヽヾ]/,
+    AFTER=/[、。，．,.!！?？）」』】〕〉》：:／・…　 ）\]]/,BEFORE=/[（「『【〔〈《(\[]/,CLOSE=/[、。，．,.!！?？）」』】〕〉》：:・…）\]]/,AN=/[0-9A-Za-z+\-×%％]/;
+  function can(a,b){if(!a||!b)return false;if(CLOSE.test(b)||SMALL.test(b))return false;if(AFTER.test(a))return true;if(BEFORE.test(b))return!BEFORE.test(a);
+    if(AN.test(a)&&AN.test(b))return false;if(HIRA.test(a)&&!HIRA.test(b))return true;return false}
+  const SKIP=/^(SCRIPT|STYLE|TEXTAREA|INPUT|OPTION|SELECT|CANVAS|svg|text|tspan|title)$/;
+  function proc(t){const v=t.nodeValue;if(!v||v.length<4)return;const p=t.parentNode;if(!p||SKIP.test(p.nodeName)||p.closest&&p.closest('[data-nowbr],svg'))return;
+    const cut=[];for(let i=1;i<v.length;i++)if(can(v[i-1],v[i]))cut.push(i);if(!cut.length)return;
+    const f=document.createDocumentFragment();let st=0;cut.forEach(i=>{f.appendChild(document.createTextNode(v.slice(st,i)));f.appendChild(document.createElement('wbr'));st=i});f.appendChild(document.createTextNode(v.slice(st)));p.replaceChild(f,t)}
+  function walk(n){if(n.nodeType===3){proc(n);return}if(n.nodeType!==1||SKIP.test(n.nodeName)||n.hasAttribute&&n.hasAttribute('data-nowbr'))return;
+    const tw=document.createTreeWalker(n,NodeFilter.SHOW_TEXT);const arr=[];while(tw.nextNode())arr.push(tw.currentNode);arr.forEach(proc)}
+  const FIT='#diceTitle,#myturn .mt-t,.dw-t,#diceResult .head,#banner .t,#cutin .ci-t b,#deal .dt';
+  function fit(el){if(!el||!el.isConnected)return;el.style.fontSize='';el.style.whiteSpace='nowrap';const w=el.clientWidth;if(!w){el.style.whiteSpace='';return}
+    let fs=parseFloat(getComputedStyle(el).fontSize),min=Math.max(13,fs*.62);while(el.scrollWidth>w+1&&fs>min){fs-=1;el.style.fontSize=fs+'px'}
+    if(el.scrollWidth>w+1)el.style.whiteSpace=''}
+  let pend=new Set(),raf=0;
+  function flush(){raf=0;obs.disconnect();pend.forEach(walk);pend.clear();document.querySelectorAll(FIT).forEach(fit);obs.observe(document.body,{childList:true,subtree:true})}
+  const obs=new MutationObserver(ms=>{ms.forEach(m=>m.addedNodes.forEach(n=>pend.add(n)));if(!raf)raf=requestAnimationFrame(flush)});
+  addEventListener('resize',()=>{if(!raf)raf=requestAnimationFrame(flush)});
+  walk(document.body);obs.observe(document.body,{childList:true,subtree:true});return{fit,walk}})();
 buildMap();makeAvatars();legend();renderSeats();renderNetPanel();
 {const sv=ssGet('gh_net');if(sv&&sv.code){if(sv.host)netCreate(sv.code);else setTimeout(()=>netJoin(sv.code),2500)}}
 addEventListener('resize',resize);resize();loop();
