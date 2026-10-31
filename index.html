@@ -790,11 +790,15 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
   #diceTally .now{font-size:13px!important;margin-top:2px!important}#diceTally .nx{font-size:13px}#diceTally .nx b{font-size:17px}
   #diceResult{order:5;margin-top:6px;pointer-events:none}#diceResult:empty{display:none}
   #diceResult .stamp{font-size:12px;margin-bottom:4px}#diceResult .head{font-size:21px!important}#diceResult .txt{font-size:13px;margin-top:2px}
-  #diceLayer:has(#diceResult.show) #diceBreak{display:none}
+  #diceLayer:has(#diceResult.show) #diceBreak{visibility:hidden}
+  #diceBreak{min-height:26px}
+  #diceResult.show{animation:resinM .45s cubic-bezier(.2,.9,.2,1) forwards!important}
+  body:has(#diceLayer.show) #says,body:has(#diceLayer.show) #bFollow,body:has(#diceLayer.show) #abils{display:none!important}
   #diceNext{order:6;margin-top:6px}
   #diceLayer.ready #diceTally,#diceLayer.ready #diceBreak{visibility:hidden}
   .pop{font-size:20px}.pop.y{font-size:24px}
 }
+@keyframes resinM{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
 </style>
 
 <div id="app">
@@ -1822,7 +1826,7 @@ const tweens=[];
 function tween(ms,fn,ease=x=>x){if(window.__FAST){fn(ease(1));return Promise.resolve()}ms*=SPEED*TEMPO;return new Promise(res=>tweens.push({t0:performance.now(),ms:Math.max(1,ms),fn,ease,res}))}
 const easeOut=x=>1-Math.pow(1-x,3), easeInOut=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(composer){composer.setSize(w,h);bloom.resolution.set(w,h)}
-  DICE.r.setSize(w,h,false);DICE.cam.aspect=w/h;const df=Math.max(1,7.5/(.69*DICE.cam.aspect*18.2));DICE.cam.position.set(0,15.5*df,9.6*df);DICE.cam.lookAt(0,0,.3);if(w<=860)DICE.cam.setViewOffset(w,h,0,-h*.07,w,h);else DICE.cam.clearViewOffset();DICE.cam.updateProjectionMatrix();
+  DICE.r.setSize(w,h,false);DICE.cam.aspect=w/h;diceFit();if(w<=860)DICE.cam.setViewOffset(w,h,0,-h*.07,w,h);else DICE.cam.clearViewOffset();DICE.cam.updateProjectionMatrix();
   fxResize();if(!S)cam.rad=w<700?24:19;if(STAGE.on)stageResize()}
 function loop(){const dt=Math.min(.05,clock.getDelta()),t=clock.elapsedTime,now=performance.now();
   for(let i=tweens.length-1;i>=0;i--){const tw=tweens[i];const k=Math.min(1,(now-tw.t0)/tw.ms);tw.fn(tw.ease(k));if(k>=1){tweens.splice(i,1);tw.res()}}
@@ -1887,8 +1891,12 @@ function holdResult(quick=false){DICE.phase='result';DICE.shownAt=performance.no
   const nx=$('#diceNext');nx.style.setProperty('--dur',ms+'ms');nx.classList.remove('show');void nx.offsetWidth;nx.classList.add('show');
   return new Promise(res=>{DICE.resolve=res;setTimeout(()=>{if(DICE.resolve===res){DICE.resolve=null;res()}},ms)})}
 function slotXZ(i,n,rowZ){const rw=Math.floor(i/7),col=i%7,inRow=Math.min(7,n-rw*7);return[(col-(inRow-1)/2)*1.4,rowZ+rw*1.4]}
+// ダイスの数に合わせてカメラを引き、横一列が必ず画面に収まるようにする
+function diceFit(cols){if(cols)DICE.cols=cols;const c=Math.max(3,DICE.cols||3),a=DICE.cam.aspect||1;const half=c*.7+.9;
+  const df=Math.max(1,half/(6.27*a));DICE.cam.position.set(0,15.5*df,9.6*df);DICE.cam.lookAt(0,0,.3);
+  const w=innerWidth,h=innerHeight;if(w<=860)DICE.cam.setViewOffset(w,h,0,-h*.07,w,h);else DICE.cam.clearViewOffset();DICE.cam.updateProjectionMatrix()}
 // ---- ダイスを握って、タップで振る（桃鉄のサイコロ感覚）----
-function hoverDice(n,styles){const arr=[];const cols=Math.min(n,7);const ph=innerWidth<=860;const gap=ph?Math.min(1.25,5/cols):1.25,scl=ph?Math.min(1.12,gap*.82):1.12;
+function hoverDice(n,styles){const arr=[];const cols=Math.min(n,7);const gap=1.25,scl=1.12;
   for(let i=0;i<n;i++){const st=styles?styles[i]||{}:{};const m=new THREE.Mesh(dieGeo,dieMats(st.style||'dark',st.tint||null));m.castShadow=true;
     const row=Math.floor(i/7),col=i%7,inRow=Math.min(7,n-row*7);m.position.set((col-(inRow-1)/2)*gap,3.4-row*.2,1.2+row*1.1);m.scale.setScalar(scl);
     DICE.scene.add(m);arr.push({m,ax:new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize(),sp:11+Math.random()*7,ph:Math.random()*6,y:m.position.y})}
@@ -1898,7 +1906,7 @@ function hoverDice(n,styles){const arr=[];const cols=Math.min(n,7);const ph=inne
     ;requestAnimationFrame(tick)};tick();
   const snd=setInterval(()=>{if(AU.ctx)SFX.rattle()},560);if(AU.ctx)SFX.rattle();
   return{stop(){run=false;clearInterval(snd);const fr=arr.map(d=>d.m.position.clone());arr.forEach(d=>DICE.scene.remove(d.m));return fr}}}
-async function readyThrow(n,styles){if(!S||n<=0)return;const ch=cur();if(!ch)return;const fast=!!window.__FAST;
+async function readyThrow(n,styles){if(n>0)diceFit(Math.min(n,7));if(!S||n<=0)return;const ch=cur();if(!ch)return;const fast=!!window.__FAST;
   if(ch.cpu){if(fast)return;DICE.phase='ready';const H=hoverDice(n,styles);goUI(ch,'cpu');await wait(700);goUI(null);DICE.hoverFrom=H.stop();DICE.phase='rolling';return}
   const H=fast?null:hoverDice(n,styles);if(!fast){DICE.phase='ready';goUI(ch,mine(ch)?'me':'wait')}
   await askRaw(ch,()=>new Promise(res=>{if(window.__FAST){res(1);return}goUI(ch,'me');const L=$('#diceLayer'),b=$('#bGo');let done=false;
