@@ -2804,6 +2804,11 @@ const NET={on:false,host:false,me:null,code:null,sig:null,hb:null,peers:{},hostP
 const ICE=window.__ICE||[{urls:['stun:stun.l.google.com:19302','stun:stun1.l.google.com:19302','stun:stun.cloudflare.com:3478']},
   // 直接つながらない回線（モバイル回線など）向けの無料中継サーバー
   {urls:['turn:openrelay.metered.ca:80','turn:openrelay.metered.ca:443','turn:openrelay.metered.ca:443?transport=tcp','turns:openrelay.metered.ca:443?transport=tcp'],username:'openrelayproject',credential:'openrelayproject'}];
+// 公式の PeerJS ライブラリ（接続サーバーと確実に話せる）。読めなければ自前の実装で代用
+let PJ_LOAD=null;
+function loadPJ(){if(window.Peer)return Promise.resolve(true);if(window.__NOPJ)return Promise.resolve(false);if(PJ_LOAD)return PJ_LOAD;
+  const tryU=u=>new Promise(r=>{const sc=document.createElement('script');sc.src=u;sc.onload=()=>r(!!window.Peer);sc.onerror=()=>r(false);document.head.appendChild(sc);setTimeout(()=>r(!!window.Peer),9000)});
+  PJ_LOAD=(async()=>{for(const u of['https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js','https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js','https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js']){if(await tryU(u))return true}return false})();return PJ_LOAD}
 const PJ_URL='wss://0.peerjs.com/peerjs',PJ_KEY='peerjs',ROOM_PFX='grandheist-r1-';
 function lsGet(k,d){try{const v=localStorage.getItem(k);return v==null?d:v}catch(e){return d}}
 function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
@@ -2887,11 +2892,11 @@ async function sigRevive(){if(!NET.on||!NET.host||!NET.code||NET.reviving)return
   for(let k=0;k<20&&NET.on&&NET.host&&!NET.sig;k++){try{await sigOpen(ROOM_PFX+NET.code);break}catch(e){await new Promise(r=>setTimeout(r,k<3?2000:5000))}}
   NET.reviving=false;renderNetPanel()}
 // 受付の死活確認：自分宛てに合図を送り、返ってこなければつなぎ直す
-setInterval(()=>{if(!NET.on||!NET.host||!NET.code||NET.reviving)return;const ws=NET.sig;
+setInterval(()=>{if(!NET.on||!NET.host||!NET.code||NET.reviving||NET.peer)return;const ws=NET.sig;
   if(!ws||ws.readyState!==1){if(ws){try{ws.onclose=null;ws.close()}catch(_){}}NET.sig=null;clearInterval(NET.hb);sigRevive();return}
   const t=Date.now();NET.pingT=t;ws.send(JSON.stringify({type:'CANDIDATE',dst:NET.myId,payload:{ping:t}}));
   setTimeout(()=>{if(NET.sig===ws&&NET.pingT===t&&NET.pong!==t&&!NET.reviving){try{ws.onclose=null;ws.close()}catch(_){}NET.sig=null;clearInterval(NET.hb);sigRevive()}},8000)},12000);
-document.addEventListener('visibilitychange',()=>{if(!document.hidden&&NET.on&&NET.host&&(!NET.sig||NET.sig.readyState>1))sigRevive()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden||!NET.on)return;if(NET.peer){if(NET.peer.disconnected&&!NET.peer.destroyed)try{NET.peer.reconnect()}catch(_){}return}if(NET.host&&(!NET.sig||NET.sig.readyState>1))sigRevive()});
 function sigSend(type,dst,payload){if(NET.sig&&NET.sig.readyState===1)NET.sig.send(JSON.stringify({type,dst,payload}))}
 function newPeer(id){const pc=new RTCPeerConnection({iceServers:ICE});const P={id,pc,dc:null,cands:[],remote:false,cid:null,open:false,ct:{}};NET.peers[id]=P;
   pc.addEventListener('icecandidate',e=>{if(e.candidate){const t=(/ typ (\w+)/.exec(e.candidate.candidate)||[])[1]||'?';P.ct[t]=(P.ct[t]||0)+1}});
@@ -2912,9 +2917,9 @@ async function sigMsg2(m){const src=m.src,pl=m.payload||{};
   if(m.type==='ANSWER'){NET.stage='answer';if(P.pc.signalingState!=='have-local-offer')return;await P.pc.setRemoteDescription(pl.sdp);P.remote=true;await addCands(P);return}
   if(m.type==='CANDIDATE'&&pl.candidate){if(P.remote){try{await P.pc.addIceCandidate(pl.candidate)}catch(_){}}else P.cands.push(pl.candidate);return}
   if(m.type==='EXPIRE'&&!NET.host&&src===NET.code&&!NET.hostPeer){lobbyFail('部屋が見つかりません。コードを確かめてください')}}
-function netSend(P,msg){if(typeof P==='string')P=NET.peers[P];if(P&&P.dc&&P.dc.readyState==='open')P.dc.send(JSON.stringify(msg))}
-function netBroadcast(msg){const s=JSON.stringify(msg);Object.values(NET.peers).forEach(P=>{if(P.dc&&P.dc.readyState==='open'&&P.cid)P.dc.send(s)})}
-function peerGone(P){if(P.gone)return;P.gone=true;delete NET.peers[P.id];try{P.pc.close()}catch(_){}
+function netSend(P,msg){if(typeof P==='string')P=NET.peers[P];if(!P)return;if(P.conn){if(P.conn.open)try{P.conn.send(msg)}catch(_){}return}if(P.dc&&P.dc.readyState==='open')P.dc.send(JSON.stringify(msg))}
+function netBroadcast(msg){Object.values(NET.peers).forEach(P=>{if(P.cid)netSend(P,msg)})}
+function peerGone(P){if(P.gone)return;P.gone=true;if(NET.peers[P.id]===P)delete NET.peers[P.id];try{P.conn?P.conn.close():P.pc.close()}catch(_){}
   if(NET.host){if(P.cid&&NET.lobby.members[P.cid]){NET.lobby.members[P.cid].online=false;lobbyPush();if(NET.inGame&&S)takeOver(P.cid);if(S)log(`<span class="r">${esc(memberName(P.cid))}の接続が切れました</span>`)}}
   else if(P===NET.hostPeer){NET.hostPeer=null;netToast('ホストとの接続が切れました。ホストが部屋を作り直したら、同じコードで入り直せます',true);renderNetPanel()}}
 // 切断した人の団員はホストが代わりに操作する（戻ってきたら返す）
@@ -2965,11 +2970,38 @@ function lobbyReq(cid,m){const L=NET.lobby,s=L.seats[m.i];if(!s||NET.inGame)retu
   else return;lobbyPush()}
 function seatReq(i,op,v){if(NET.host)lobbyReq(CID,{i,op,v});else if(NET.hostPeer)netSend(NET.hostPeer,{t:'seat',i,op,v})}
 function genCode(){const A='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let c='';for(let i=0;i<5;i++)c+=A[Math.floor(Math.random()*A.length)];return c}
-async function netCreate(code){netReset();NET.on=true;NET.host=true;NET.me=CID;NET.status='opening';renderNetPanel();
+function pjNew(id){return new Promise((res,rej)=>{let done=false;const pr=new Peer(id,{config:{iceServers:ICE},debug:1});
+  const to=setTimeout(()=>{if(!done){done=true;try{pr.destroy()}catch(_){}rej(new Error('timeout'))}},15000);
+  pr.on('open',()=>{if(done)return;done=true;clearTimeout(to);res(pr)});
+  pr.on('error',e=>{if(done){pjErr(pr,e);return}done=true;clearTimeout(to);try{pr.destroy()}catch(_){}rej(new Error(e.type==='unavailable-id'?'taken':(e.type||'error')))})})}
+function pjErr(pr,e){if(pr!==NET.peer)return;const t=e&&e.type;console.warn('peer error',t,e);
+  if(t==='peer-unavailable'&&NET.status==='joining'){lobbyFail('部屋が見つかりません：コードが違うか、ホストが部屋を閉じています');return}
+  if(t==='network'||t==='server-error'||t==='socket-error'||t==='socket-closed'){renderNetPanel();setTimeout(()=>{if(NET.peer===pr&&pr.disconnected&&!pr.destroyed)try{pr.reconnect()}catch(_){}},2000)}}
+function pjWatch(pr){pr.on('disconnected',()=>{if(NET.peer!==pr)return;renderNetPanel();setTimeout(()=>{if(NET.peer===pr&&pr.disconnected&&!pr.destroyed)try{pr.reconnect()}catch(_){}},1000)});
+  pr.on('open',()=>{if(NET.peer===pr)renderNetPanel()});pr.on('error',e=>pjErr(pr,e))}
+function pjBind(conn,P){P.conn=conn;conn.on('data',m=>{if(m&&typeof m==='object')netMsg(P,m)});conn.on('close',()=>peerGone(P));conn.on('error',e=>console.warn('conn error',e))}
+async function netCreate(code){if(await loadPJ())return pjCreate(code);netReset();NET.on=true;NET.host=true;NET.me=CID;NET.status='opening';renderNetPanel();
   for(let tries=0;tries<5;tries++){const c=code||genCode();try{await sigOpen(ROOM_PFX+c);NET.code=c;break}catch(e){if(e.message==='taken'&&!code)continue;if(e.message==='taken'&&code){await new Promise(r=>setTimeout(r,2500));continue}lobbyFail(netErrText(e));return}}
   if(!NET.code){lobbyFail('部屋を作れませんでした。少し待ってからもう一度試してください');return}
   lobbyInit();NET.status='in';ssSet('gh_net',{code:NET.code,host:true});lobbyApply();netToast(`部屋を作りました：${NET.code}`)}
+async function pjCreate(code){netReset();NET.on=true;NET.host=true;NET.me=CID;NET.status='opening';renderNetPanel();
+  let pr=null;for(let tries=0;tries<6;tries++){const c=code||genCode();try{pr=await pjNew(ROOM_PFX+c);NET.code=c;break}catch(e){if(e.message==='taken'){if(code)await new Promise(r=>setTimeout(r,3000));continue}lobbyFail(netErrText(e));return}}
+  if(!pr){lobbyFail('部屋を作れませんでした。少し待ってからもう一度試してください');return}
+  NET.peer=pr;pjWatch(pr);
+  pr.on('connection',conn=>{const old=NET.peers[conn.peer];if(old)peerGone(old);const P={id:conn.peer,cid:null,open:false};NET.peers[conn.peer]=P;pjBind(conn,P);
+    conn.on('open',()=>{P.open=true});netToast('参加リクエストを受信。接続しています…')});
+  lobbyInit();NET.status='in';ssSet('gh_net',{code:NET.code,host:true});lobbyApply();netToast(`部屋を作りました：${NET.code}`)}
+async function pjJoin(code){netReset();NET.on=true;NET.host=false;NET.me=CID;NET.code=code;NET.status='joining';renderNetPanel();
+  let pr;try{pr=await pjNew(ROOM_PFX+'g'+Math.random().toString(36).slice(2,10))}catch(e){lobbyFail(netErrText(e));return}
+  NET.peer=pr;pjWatch(pr);ssSet('gh_net',{code,host:false});
+  const hid=ROOM_PFX+code;const P={id:hid,cid:null,open:false};NET.peers[hid]=P;NET.hostPeer=P;NET.stage='connect';
+  const conn=pr.connect(hid,{reliable:true,serialization:'json'});pjBind(conn,P);
+  conn.on('open',()=>{P.open=true;NET.stage='open';netSend(P,{t:'hello',cid:CID,name:myName()})});
+  setTimeout(()=>{if(NET.status!=='joining'||NET.code!==code)return;const pc=conn.peerConnection;const ice=pc?pc.iceConnectionState:'-';
+    const why=ice==='new'||ice==='-'?'ホストから応答がありません（コード違い、またはホストのページが閉じている／スリープ中）':ice==='checking'||ice==='failed'?'端末どうしを直接つなげませんでした（回線の制限）':'接続後の応答がありません';
+    lobbyFail(`部屋につながりませんでした：${why}［診断：PJ／${NET.stage}／${ice}／${pr.disconnected?'切断':'接続'}］`)},35000)}
 async function netJoin(code){code=String(code||'').toUpperCase().replace(/[^A-Z0-9]/g,'');if(code.length<4){netToast('部屋のコードを入力してください');return}
+  if(await loadPJ())return pjJoin(code);
   netReset();NET.on=true;NET.host=false;NET.me=CID;NET.code=code;NET.status='joining';renderNetPanel();
   try{await sigOpen(ROOM_PFX+'g'+Math.random().toString(36).slice(2,10))}catch(e){lobbyFail(netErrText(e));return}
   const hid=ROOM_PFX+code;const P=newPeer(hid);NET.hostPeer=P;const dc=P.pc.createDataChannel('gh',{ordered:true});bindDc(P,dc);
@@ -2983,7 +3015,7 @@ async function netJoin(code){code=String(code||'').toUpperCase().replace(/[^A-Z0
     const diag=`［診断：${NET.stage||'-'}／${pc.iceConnectionState}／受信${NET.rx||0}${NET.rxT?'('+NET.rxT+')':''}／ws${NET.sig?NET.sig.readyState:'x'}／候補 ${['host','srflx','relay'].map(k=>k+(ct[k]||0)).join(' ')}］`;
     console.warn('join fail',diag);lobbyFail('部屋につながりませんでした：'+why+' '+diag)},35000)}
 function netErrText(e){const m=e&&e.message||'';if(m==='ws'||m==='closed'||m==='timeout')return'接続サーバーにつながりませんでした（この環境では通信が制限されている可能性があります）';return'接続できませんでした：'+m}
-function netReset(){Object.values(NET.peers).forEach(P=>{P.gone=true;try{P.pc.close()}catch(_){}});NET.peers={};NET.hostPeer=null;if(NET.sig)try{NET.sig.close()}catch(_){}NET.sig=null;clearInterval(NET.hb);
+function netReset(){Object.values(NET.peers).forEach(P=>{P.gone=true;try{P.conn?P.conn.close():P.pc.close()}catch(_){}});if(NET.peer){const pr=NET.peer;NET.peer=null;try{pr.destroy()}catch(_){}}NET.peers={};NET.hostPeer=null;if(NET.sig)try{NET.sig.close()}catch(_){}NET.sig=null;clearInterval(NET.hb);
   Object.assign(NET,{on:false,host:false,code:null,lobby:null,log:[],n:0,start:null,hashes:{},status:'',inGame:false})}
 function netLeave(){netReset();ssSet('gh_net',null);SEATS.forEach(s=>{delete s.owner});renderSeats();renderNetPanel()}
 function lobbyFail(t){netReset();ssSet('gh_net',null);NET.status='';renderNetPanel();netToast(t,true)}
@@ -3155,7 +3187,7 @@ function renderNetPanel(){const el=$('#netpanel');if(!el)return;const st=NET.sta
   if(st==='opening'||st==='joining'){el.innerHTML=`<div class="np"><div class="np-h"><b>${st==='opening'?'部屋を作っています…':'部屋に接続しています…'}</b><span>${NET.code?`コード ${NET.code}`:''}</span></div><div class="np-row"><button class="btn ghost" id="npLeave">やめる</button></div></div>`;$('#npLeave').onclick=netLeave;return}
   const L=NET.lobby||{members:{}};const mem=Object.entries(L.members).map(([cid,m])=>`<span class="mb ${m.online===false?'off':''}"><i></i>${esc(m.name)}${m.host?'<em>ホスト</em>':''}${cid===CID?'<em>あなた</em>':''}</span>`).join('');
   el.innerHTML=`<div class="np in"><div class="np-code"><small>部屋のコード</small><b>${NET.code||'—'}</b>${NET.host?`<button class="btn ghost" id="npCopy">コピー</button>`:''}</div>
-    <div class="np-h"><b>${NET.host?'あなたはホストです':'部屋に入りました'}${NET.host?(NET.sig&&NET.sig.readyState===1?'<em class="sg ok">受付中</em>':'<em class="sg ng">再接続中…</em>'):''}</b><span>${NET.host?'このページを開いた友達に、上のコードを伝えてください（Discordに貼るのが簡単）。下の席で「ここに座る」を押した人がその団員を操作し、空いた席はCPUが動かします。全員そろったら「決行する」':'下の席から「ここに座る」で操作する団員を選び、職業を決めてください。開始はホストが行います'}</span></div>
+    <div class="np-h"><b>${NET.host?'あなたはホストです':'部屋に入りました'}${NET.host?((NET.peer?(NET.peer.open&&!NET.peer.disconnected):(NET.sig&&NET.sig.readyState===1))?'<em class="sg ok">受付中</em>':'<em class="sg ng">再接続中…</em>'):''}</b><span>${NET.host?'このページを開いた友達に、上のコードを伝えてください（Discordに貼るのが簡単）。下の席で「ここに座る」を押した人がその団員を操作し、空いた席はCPUが動かします。全員そろったら「決行する」':'下の席から「ここに座る」で操作する団員を選び、職業を決めてください。開始はホストが行います'}</span></div>
     <div class="np-mem">${mem}</div><div class="np-row"><button class="btn ghost" id="npLeave">部屋を出る</button></div></div>`;
   $('#npLeave').onclick=()=>{if(AU.ctx)SFX.click();netLeave()};const cp=$('#npCopy');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(NET.code);netToast('コードをコピーしました')}catch(e){netToast('コピーできませんでした。手で伝えてください')}}}
 function showJobs(){modal(`<h3>職業一覧</h3><p>経験が2・5・9・14たまるとレベル2〜5に上がり、職業ごとに決まった能力が伸びます。</p><div class="jobgrid">${JOBS.map(j=>`<div class="jobcard" style="--c:${j.css}">
@@ -3304,7 +3336,7 @@ const JB=(()=>{const HIRA=/[ぁ-ゟ]/,SMALL=/[ぁぃぅぇぉっゃゅょゎァ�
   const obs=new MutationObserver(ms=>{ms.forEach(m=>m.addedNodes.forEach(n=>pend.add(n)));if(!raf)raf=requestAnimationFrame(flush)});
   addEventListener('resize',()=>{if(!raf)raf=requestAnimationFrame(flush)});
   walk(document.body);obs.observe(document.body,{childList:true,subtree:true});return{fit,walk}})();
-buildMap();makeAvatars();legend();renderSeats();renderNetPanel();
+buildMap();makeAvatars();legend();renderSeats();renderNetPanel();loadPJ();
 {const sv=ssGet('gh_net');if(sv&&sv.code){if(sv.host)netCreate(sv.code);else setTimeout(()=>netJoin(sv.code),2500)}}
 addEventListener('resize',resize);resize();loop();
 anims.push(t=>{if(!S)cam.theta=.25+Math.sin(t*.07)*.5});
