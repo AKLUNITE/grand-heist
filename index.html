@@ -3336,7 +3336,7 @@ const JB=(()=>{const HIRA=/[ぁ-ゟ]/,SMALL=/[ぁぃぅぇぉっゃゅょゎァ�
   const obs=new MutationObserver(ms=>{ms.forEach(m=>m.addedNodes.forEach(n=>pend.add(n)));if(!raf)raf=requestAnimationFrame(flush)});
   addEventListener('resize',()=>{if(!raf)raf=requestAnimationFrame(flush)});
   walk(document.body);obs.observe(document.body,{childList:true,subtree:true});return{fit,walk}})();
-buildMap();makeAvatars();legend();renderSeats();renderNetPanel();loadPJ();
+buildMap();makeAvatars();legend();renderSeats();renderNetPanel();addEventListener('load',()=>setTimeout(loadPJ,300));
 {const sv=ssGet('gh_net');if(sv&&sv.code){if(sv.host)netCreate(sv.code);else setTimeout(()=>netJoin(sv.code),2500)}}
 addEventListener('resize',resize);resize();loop();
 anims.push(t=>{if(!S)cam.theta=.25+Math.sin(t*.07)*.5});
