@@ -708,6 +708,7 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
 .np input{background:#0b0b11;border:1px solid var(--line2);color:var(--ivory);padding:9px 10px;font:inherit;font-size:14px;border-radius:4px;width:170px}
 .np-go .btn{width:auto;margin:0;align-items:center}.np-join{display:flex;gap:6px;align-items:stretch}.np-join input{width:130px;text-transform:uppercase;letter-spacing:.2em;font-family:var(--f-num);font-weight:700}.np-join .btn{width:auto;margin:0;padding:9px 16px;align-items:center}
 .np-code{display:flex;align-items:center;gap:12px}.np-code small{color:var(--mute);font-size:12px}.np-code b{font-family:var(--f-num);font-size:34px;letter-spacing:.3em;color:var(--teal);text-shadow:0 0 16px rgba(82,212,198,.5)}.np-code .btn{width:auto;margin:0;padding:6px 12px}
+.np-h .sg{font-style:normal;font-size:11px;margin-left:8px;padding:1px 8px;border-radius:10px;vertical-align:middle}.np-h .sg.ok{background:rgba(98,227,164,.2);color:var(--ok)}.np-h .sg.ng{background:rgba(255,74,98,.2);color:#ff8a9a}
 .np-mem{display:flex;flex-wrap:wrap;gap:6px}.np-mem .mb{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:14px;font-size:13px;color:var(--ivory)}
 .np-mem .mb i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 6px var(--ok)}.np-mem .mb.off{opacity:.55}.np-mem .mb.off i{background:var(--bad);box-shadow:none}
 .np-mem .mb em{font-style:normal;font-size:10.5px;color:#1b1206;background:var(--gold);padding:0 5px;border-radius:3px}
@@ -2870,18 +2871,27 @@ function checkHash(k){const e=NET.hashes[k];if(!e||!e._host)return;for(const [ci
   window.__DESYNC=(window.__DESYNC||0)+1;console.warn('desync',k,cid,h,e._host);log(`<span class="r">⚠ ${esc(memberName(cid))}の画面と進行がずれた可能性があります（手番${k}）</span>`);delete e[cid]}}
 
 /* ---------- 接続（PeerJS サーバーで相手を見つけ、WebRTC で直接つなぐ） ---------- */
-function sigOpen(id){return new Promise((res,rej)=>{const tok=Math.random().toString(36).slice(2);
+function sigOpen(id){return new Promise((res,rej)=>{const tok=(NET.tokId===id&&NET.tok)||Math.random().toString(36).slice(2);NET.tok=tok;NET.tokId=id;NET.myId=id;
   const url=(window.__SIGURL||PJ_URL)+`?key=${PJ_KEY}&id=${encodeURIComponent(id)}&token=${tok}&version=1.5.4`;
   let ws,done=false;const fail=e=>{if(done)return;done=true;clearTimeout(to);try{ws&&ws.close()}catch(_){}rej(e)};
   const to=setTimeout(()=>fail(new Error('timeout')),15000);
   try{ws=new WebSocket(url)}catch(e){fail(e);return}
-  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(_){return}
+  ws.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(_){return}NET.rx=(NET.rx||0)+1;NET.rxT=(NET.rxT||'')+(m.type||'?')[0];
     if(m.type==='OPEN'){if(done)return;done=true;clearTimeout(to);NET.sig=ws;clearInterval(NET.hb);NET.hb=setInterval(()=>{if(ws.readyState===1)ws.send(JSON.stringify({type:'HEARTBEAT'}))},5000);res(ws);return}
     if(m.type==='ID-TAKEN'){fail(new Error('taken'));return}
     if(m.type==='ERROR'||m.type==='INVALID-KEY'){fail(new Error((m.payload&&m.payload.msg)||m.type));return}
     sigMsg(m)};
   ws.onerror=()=>fail(new Error('ws'));
-  ws.onclose=()=>{if(!done){fail(new Error('closed'));return}if(NET.sig===ws){NET.sig=null;clearInterval(NET.hb)}}})}
+  ws.onclose=()=>{if(!done){fail(new Error('closed'));return}if(NET.sig===ws){NET.sig=null;clearInterval(NET.hb);sigRevive()}}})}
+async function sigRevive(){if(!NET.on||!NET.host||!NET.code||NET.reviving)return;NET.reviving=true;renderNetPanel();
+  for(let k=0;k<20&&NET.on&&NET.host&&!NET.sig;k++){try{await sigOpen(ROOM_PFX+NET.code);break}catch(e){await new Promise(r=>setTimeout(r,k<3?2000:5000))}}
+  NET.reviving=false;renderNetPanel()}
+// 受付の死活確認：自分宛てに合図を送り、返ってこなければつなぎ直す
+setInterval(()=>{if(!NET.on||!NET.host||!NET.code||NET.reviving)return;const ws=NET.sig;
+  if(!ws||ws.readyState!==1){if(ws){try{ws.onclose=null;ws.close()}catch(_){}}NET.sig=null;clearInterval(NET.hb);sigRevive();return}
+  const t=Date.now();NET.pingT=t;ws.send(JSON.stringify({type:'CANDIDATE',dst:NET.myId,payload:{ping:t}}));
+  setTimeout(()=>{if(NET.sig===ws&&NET.pingT===t&&NET.pong!==t&&!NET.reviving){try{ws.onclose=null;ws.close()}catch(_){}NET.sig=null;clearInterval(NET.hb);sigRevive()}},8000)},12000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&NET.on&&NET.host&&(!NET.sig||NET.sig.readyState>1))sigRevive()});
 function sigSend(type,dst,payload){if(NET.sig&&NET.sig.readyState===1)NET.sig.send(JSON.stringify({type,dst,payload}))}
 function newPeer(id){const pc=new RTCPeerConnection({iceServers:ICE});const P={id,pc,dc:null,cands:[],remote:false,cid:null,open:false,ct:{}};NET.peers[id]=P;
   pc.addEventListener('icecandidate',e=>{if(e.candidate){const t=(/ typ (\w+)/.exec(e.candidate.candidate)||[])[1]||'?';P.ct[t]=(P.ct[t]||0)+1}});
@@ -2890,12 +2900,16 @@ function newPeer(id){const pc=new RTCPeerConnection({iceServers:ICE});const P={i
 function bindDc(P,dc){P.dc=dc;dc.onopen=()=>{P.open=true;if(!NET.host)netSend(P,{t:'hello',cid:CID,name:myName()})};
   dc.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch(_){return}netMsg(P,m)};dc.onclose=()=>peerGone(P)}
 async function addCands(P){for(const c of P.cands.splice(0)){try{await P.pc.addIceCandidate(c)}catch(_){}}}
-async function sigMsg(m){const src=m.src,pl=m.payload||{};
-  if(m.type==='OFFER'&&NET.host){const old=NET.peers[src];if(old)try{old.pc.close()}catch(_){}
-    const P=newPeer(src);P.pc.ondatachannel=e=>bindDc(P,e.channel);
-    await P.pc.setRemoteDescription(pl.sdp);P.remote=true;await addCands(P);const a=await P.pc.createAnswer();await P.pc.setLocalDescription(a);sigSend('ANSWER',src,{sdp:a,connectionId:'gh',type:'data'});return}
+async function sigMsg(m){try{await sigMsg2(m)}catch(e){console.error(e);netToast('接続処理でエラー：'+(e&&e.message||e),true)}}
+async function sigMsg2(m){const src=m.src,pl=m.payload||{};
+  if(m.type==='CANDIDATE'&&pl.ping){NET.pong=pl.ping;return}
+  if(m.type==='OFFER'&&NET.host){const old=NET.peers[src];if(old&&old.lastOffer===pl.sdp.sdp&&old.answer){sigSend('ANSWER',src,{sdp:old.answer,connectionId:'gh',type:'data'});return}
+    if(old)try{old.gone=true;old.pc.close()}catch(_){}
+    netToast('参加リクエストを受信。接続しています…');
+    const P=newPeer(src);P.lastOffer=pl.sdp.sdp;P.pc.ondatachannel=e=>bindDc(P,e.channel);
+    await P.pc.setRemoteDescription(pl.sdp);P.remote=true;await addCands(P);const a=await P.pc.createAnswer();await P.pc.setLocalDescription(a);P.answer=a;sigSend('ANSWER',src,{sdp:a,connectionId:'gh',type:'data'});return}
   const P=NET.peers[src];if(!P)return;
-  if(m.type==='ANSWER'){NET.stage='answer';await P.pc.setRemoteDescription(pl.sdp);P.remote=true;await addCands(P);return}
+  if(m.type==='ANSWER'){NET.stage='answer';if(P.pc.signalingState!=='have-local-offer')return;await P.pc.setRemoteDescription(pl.sdp);P.remote=true;await addCands(P);return}
   if(m.type==='CANDIDATE'&&pl.candidate){if(P.remote){try{await P.pc.addIceCandidate(pl.candidate)}catch(_){}}else P.cands.push(pl.candidate);return}
   if(m.type==='EXPIRE'&&!NET.host&&src===NET.code&&!NET.hostPeer){lobbyFail('部屋が見つかりません。コードを確かめてください')}}
 function netSend(P,msg){if(typeof P==='string')P=NET.peers[P];if(P&&P.dc&&P.dc.readyState==='open')P.dc.send(JSON.stringify(msg))}
@@ -2959,13 +2973,14 @@ async function netJoin(code){code=String(code||'').toUpperCase().replace(/[^A-Z0
   netReset();NET.on=true;NET.host=false;NET.me=CID;NET.code=code;NET.status='joining';renderNetPanel();
   try{await sigOpen(ROOM_PFX+'g'+Math.random().toString(36).slice(2,10))}catch(e){lobbyFail(netErrText(e));return}
   const hid=ROOM_PFX+code;const P=newPeer(hid);NET.hostPeer=P;const dc=P.pc.createDataChannel('gh',{ordered:true});bindDc(P,dc);
-  const off=await P.pc.createOffer();await P.pc.setLocalDescription(off);sigSend('OFFER',hid,{sdp:off,connectionId:'gh',type:'data'});NET.stage='offer';
+  const off=await P.pc.createOffer();await P.pc.setLocalDescription(off);const sendOff=()=>sigSend('OFFER',hid,{sdp:P.pc.localDescription||off,connectionId:'gh',type:'data'});sendOff();NET.stage='offer';NET.rx=0;NET.rxT='';
+  let tries=0;const rs=setInterval(()=>{if(NET.stage!=='offer'||NET.code!==code||NET.status!=='joining'||++tries>4){clearInterval(rs);return}sendOff()},6000);
   ssSet('gh_net',{code,host:false});
   setTimeout(()=>{if(NET.status!=='joining'||NET.code!==code)return;const pc=P.pc,ct=P.ct||{};
     const why=NET.stage!=='answer'?'ホストから応答がありません（コード違い、またはホストのページが閉じている／スリープ中）'
       :pc.iceConnectionState==='failed'||pc.iceConnectionState==='checking'||pc.iceConnectionState==='new'?`端末どうしを直接つなげませんでした（回線の制限。Wi-Fiどうしで試してください）`
       :'接続後の応答がありません';
-    const diag=`［診断：${NET.stage||'-'}／${pc.iceConnectionState}／候補 ${['host','srflx','relay'].map(k=>k+(ct[k]||0)).join(' ')}］`;
+    const diag=`［診断：${NET.stage||'-'}／${pc.iceConnectionState}／受信${NET.rx||0}${NET.rxT?'('+NET.rxT+')':''}／ws${NET.sig?NET.sig.readyState:'x'}／候補 ${['host','srflx','relay'].map(k=>k+(ct[k]||0)).join(' ')}］`;
     console.warn('join fail',diag);lobbyFail('部屋につながりませんでした：'+why+' '+diag)},35000)}
 function netErrText(e){const m=e&&e.message||'';if(m==='ws'||m==='closed'||m==='timeout')return'接続サーバーにつながりませんでした（この環境では通信が制限されている可能性があります）';return'接続できませんでした：'+m}
 function netReset(){Object.values(NET.peers).forEach(P=>{P.gone=true;try{P.pc.close()}catch(_){}});NET.peers={};NET.hostPeer=null;if(NET.sig)try{NET.sig.close()}catch(_){}NET.sig=null;clearInterval(NET.hb);
@@ -3140,7 +3155,7 @@ function renderNetPanel(){const el=$('#netpanel');if(!el)return;const st=NET.sta
   if(st==='opening'||st==='joining'){el.innerHTML=`<div class="np"><div class="np-h"><b>${st==='opening'?'部屋を作っています…':'部屋に接続しています…'}</b><span>${NET.code?`コード ${NET.code}`:''}</span></div><div class="np-row"><button class="btn ghost" id="npLeave">やめる</button></div></div>`;$('#npLeave').onclick=netLeave;return}
   const L=NET.lobby||{members:{}};const mem=Object.entries(L.members).map(([cid,m])=>`<span class="mb ${m.online===false?'off':''}"><i></i>${esc(m.name)}${m.host?'<em>ホスト</em>':''}${cid===CID?'<em>あなた</em>':''}</span>`).join('');
   el.innerHTML=`<div class="np in"><div class="np-code"><small>部屋のコード</small><b>${NET.code||'—'}</b>${NET.host?`<button class="btn ghost" id="npCopy">コピー</button>`:''}</div>
-    <div class="np-h"><b>${NET.host?'あなたはホストです':'部屋に入りました'}</b><span>${NET.host?'このページを開いた友達に、上のコードを伝えてください（Discordに貼るのが簡単）。下の席で「ここに座る」を押した人がその団員を操作し、空いた席はCPUが動かします。全員そろったら「決行する」':'下の席から「ここに座る」で操作する団員を選び、職業を決めてください。開始はホストが行います'}</span></div>
+    <div class="np-h"><b>${NET.host?'あなたはホストです':'部屋に入りました'}${NET.host?(NET.sig&&NET.sig.readyState===1?'<em class="sg ok">受付中</em>':'<em class="sg ng">再接続中…</em>'):''}</b><span>${NET.host?'このページを開いた友達に、上のコードを伝えてください（Discordに貼るのが簡単）。下の席で「ここに座る」を押した人がその団員を操作し、空いた席はCPUが動かします。全員そろったら「決行する」':'下の席から「ここに座る」で操作する団員を選び、職業を決めてください。開始はホストが行います'}</span></div>
     <div class="np-mem">${mem}</div><div class="np-row"><button class="btn ghost" id="npLeave">部屋を出る</button></div></div>`;
   $('#npLeave').onclick=()=>{if(AU.ctx)SFX.click();netLeave()};const cp=$('#npCopy');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(NET.code);netToast('コードをコピーしました')}catch(e){netToast('コピーできませんでした。手で伝えてください')}}}
 function showJobs(){modal(`<h3>職業一覧</h3><p>経験が2・5・9・14たまるとレベル2〜5に上がり、職業ごとに決まった能力が伸びます。</p><div class="jobgrid">${JOBS.map(j=>`<div class="jobcard" style="--c:${j.css}">
