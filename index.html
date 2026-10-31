@@ -770,6 +770,31 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
 #diceGo .gw{font-size:15px;color:var(--ivory);padding:8px 16px;border:1px solid var(--c);border-radius:20px;background:rgba(8,8,13,.85)}#diceGo .gw b{color:var(--c)}
 #diceGo.cpu .gw,#diceGo.wait .gw{animation:breathe 1.4s infinite}
 @media (max-width:860px){#diceLayer.ready #diceLegend,#diceLayer.ready #diceTable{display:none!important}}
+
+/* ===== スマホのダイス画面：縦に積む（重ならない） ===== */
+@media (max-width:860px){
+  #diceLayer.show{display:flex;flex-direction:column;align-items:center;box-sizing:border-box;padding:calc(env(safe-area-inset-top,0px) + 8px) 10px calc(env(safe-area-inset-bottom,0px) + 10px)}
+  #diceHead,#diceLegend,#diceBreak,#diceTally,#diceResult,#diceNext{position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;width:100%!important;max-width:520px;box-sizing:border-box}
+  #diceHead{order:1}#dicePurpose{font-size:11px;padding:2px 10px;margin-bottom:2px}#diceTitle{font-size:18px!important;line-height:1.3}
+  #diceSub{font-size:12px!important;margin-top:2px!important;line-height:1.45!important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  #diceSub .odds{font-size:12px}#diceSrc{display:none!important}
+  #diceLegend{order:2;margin-top:6px;padding:4px 8px!important;display:flex!important;flex-wrap:wrap;justify-content:center;align-items:center;gap:2px 10px!important;background:rgba(8,8,13,.72)!important;border-radius:6px}
+  #diceLegend[hidden]{display:none!important}
+  #diceLegend .pt{display:none!important}#diceLegend .pt.sm~*{display:none!important}
+  #diceLegend .lg{font-size:11px!important;padding:0!important;gap:3px}#diceLegend .md{min-width:18px!important;height:18px!important;font-size:11px!important}
+  #diceTable{display:none!important}
+  #diceBreak{order:3;margin-top:auto;flex-wrap:nowrap!important;overflow-x:auto;overflow-y:hidden;justify-content:flex-start!important;gap:4px!important;padding-bottom:2px;scrollbar-width:none}
+  #diceBreak::-webkit-scrollbar{display:none}
+  #diceBreak .bk{flex:0 0 auto;padding:2px 8px 2px 2px}#diceBreak .bk em{font-size:12px}#diceBreak .md{min-width:20px;height:20px;font-size:12px}
+  #diceTally{order:4;margin-top:4px}#diceTally .lbl{font-size:10px;letter-spacing:.3em}#diceTally .num{font-size:50px!important}#diceTally .need{font-size:13px}
+  #diceTally .now{font-size:13px!important;margin-top:2px!important}#diceTally .nx{font-size:13px}#diceTally .nx b{font-size:17px}
+  #diceResult{order:5;margin-top:6px;pointer-events:none}#diceResult:empty{display:none}
+  #diceResult .stamp{font-size:12px;margin-bottom:4px}#diceResult .head{font-size:21px!important}#diceResult .txt{font-size:13px;margin-top:2px}
+  #diceLayer:has(#diceResult.show) #diceBreak{display:none}
+  #diceNext{order:6;margin-top:6px}
+  #diceLayer.ready #diceTally,#diceLayer.ready #diceBreak{visibility:hidden}
+  .pop{font-size:20px}.pop.y{font-size:24px}
+}
 </style>
 
 <div id="app">
@@ -1797,7 +1822,7 @@ const tweens=[];
 function tween(ms,fn,ease=x=>x){if(window.__FAST){fn(ease(1));return Promise.resolve()}ms*=SPEED*TEMPO;return new Promise(res=>tweens.push({t0:performance.now(),ms:Math.max(1,ms),fn,ease,res}))}
 const easeOut=x=>1-Math.pow(1-x,3), easeInOut=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(composer){composer.setSize(w,h);bloom.resolution.set(w,h)}
-  DICE.r.setSize(w,h,false);DICE.cam.aspect=w/h;const df=Math.max(1,7.5/(.69*DICE.cam.aspect*18.2));DICE.cam.position.set(0,15.5*df,9.6*df);DICE.cam.lookAt(0,0,.3);DICE.cam.updateProjectionMatrix();
+  DICE.r.setSize(w,h,false);DICE.cam.aspect=w/h;const df=Math.max(1,7.5/(.69*DICE.cam.aspect*18.2));DICE.cam.position.set(0,15.5*df,9.6*df);DICE.cam.lookAt(0,0,.3);if(w<=860)DICE.cam.setViewOffset(w,h,0,-h*.07,w,h);else DICE.cam.clearViewOffset();DICE.cam.updateProjectionMatrix();
   fxResize();if(!S)cam.rad=w<700?24:19;if(STAGE.on)stageResize()}
 function loop(){const dt=Math.min(.05,clock.getDelta()),t=clock.elapsedTime,now=performance.now();
   for(let i=tweens.length-1;i>=0;i--){const tw=tweens[i];const k=Math.min(1,(now-tw.t0)/tw.ms);tw.fn(tw.ease(k));if(k>=1){tweens.splice(i,1);tw.res()}}
@@ -1852,7 +1877,7 @@ function diceOpen({purpose='',pc='',title='',sub='',legend='',table=null,tableTi
   const lg=$('#diceLegend');lg.innerHTML=legend;lg.hidden=!legend;
   DICE.table=table;const tb=$('#diceTable');tb.hidden=!table;tb.innerHTML=table?`<div class="pt">${tableTitle}</div>`+table.map(r=>`<div class="tb ${r.c||''}"><b>${r.k}</b><span>${r.t}</span></div>`).join(''):''}
 function tableHL(v){if(!DICE.table)return null;let hit=null;document.querySelectorAll('#diceTable .tb').forEach((el,i)=>{const on=DICE.table[i].test(v);el.classList.toggle('on',on);if(on&&!hit)hit=DICE.table[i]});return hit}
-function addBreak(v,txt,cls,gold){const el=document.createElement('span');el.className='bk '+cls;el.innerHTML=`${v!==''?md(v,gold?'gold':cls==='z'?'z':''):''}<em>${txt}</em>`;$('#diceBreak').appendChild(el)}
+function addBreak(v,txt,cls,gold){const el=document.createElement('span');el.className='bk '+cls;el.innerHTML=`${v!==''?md(v,gold?'gold':cls==='z'?'z':''):''}<em>${txt}</em>`;const bb=$('#diceBreak');bb.appendChild(el);bb.scrollLeft=bb.scrollWidth}
 function diceClose(){DICE.on=false;DICE.phase='idle';$('#diceLayer').classList.remove('show');diceClear()}
 $('#diceLayer').addEventListener('pointerdown',()=>{if(DICE.phase==='rolling')DICE.fast=true;else if(DICE.phase==='result'&&DICE.resolve&&performance.now()-DICE.shownAt>500){const r=DICE.resolve;DICE.resolve=null;r()}});
 // 結果カードを出して、タップか一定時間で閉じる（プレイヤーの手番は長め）
@@ -1863,9 +1888,9 @@ function holdResult(quick=false){DICE.phase='result';DICE.shownAt=performance.no
   return new Promise(res=>{DICE.resolve=res;setTimeout(()=>{if(DICE.resolve===res){DICE.resolve=null;res()}},ms)})}
 function slotXZ(i,n,rowZ){const rw=Math.floor(i/7),col=i%7,inRow=Math.min(7,n-rw*7);return[(col-(inRow-1)/2)*1.4,rowZ+rw*1.4]}
 // ---- ダイスを握って、タップで振る（桃鉄のサイコロ感覚）----
-function hoverDice(n,styles){const arr=[];const cols=Math.min(n,7);
+function hoverDice(n,styles){const arr=[];const cols=Math.min(n,7);const ph=innerWidth<=860;const gap=ph?Math.min(1.25,5/cols):1.25,scl=ph?Math.min(1.12,gap*.82):1.12;
   for(let i=0;i<n;i++){const st=styles?styles[i]||{}:{};const m=new THREE.Mesh(dieGeo,dieMats(st.style||'dark',st.tint||null));m.castShadow=true;
-    const row=Math.floor(i/7),col=i%7,inRow=Math.min(7,n-row*7);m.position.set((col-(inRow-1)/2)*1.25,3.4-row*.2,1.2+row*1.1);m.scale.setScalar(1.12);
+    const row=Math.floor(i/7),col=i%7,inRow=Math.min(7,n-row*7);m.position.set((col-(inRow-1)/2)*gap,3.4-row*.2,1.2+row*1.1);m.scale.setScalar(scl);
     DICE.scene.add(m);arr.push({m,ax:new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize(),sp:11+Math.random()*7,ph:Math.random()*6,y:m.position.y})}
   let run=true,last=performance.now();const t0=last;
   const tick=()=>{if(!run)return;const now=performance.now(),dt=Math.min(.05,(now-last)/1000),t=(now-t0)/1000;last=now;
