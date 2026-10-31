@@ -799,6 +799,44 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
   .pop{font-size:20px}.pop.y{font-size:24px}
 }
 @keyframes resinM{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
+
+/* ===== スマホ：手番順・団員の列・待機中メニュー ===== */
+#bMe,#fabMenu{display:none}
+#crewpop{overflow-y:auto}
+@media (max-width:860px){
+  #bMe{display:block}
+  #top.menu{z-index:50!important}
+  #fabMenu{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:46;width:38px;height:38px;border-radius:50%;border:1px solid var(--line2);background:rgba(10,10,16,.92);color:var(--ivory);font-size:18px;box-shadow:0 6px 16px rgba(0,0,0,.6)}
+  body:has(#diceLayer.show) #fabMenu,body:has(#draw.show) #fabMenu{display:grid;place-items:center}
+  body:has(#diceLayer.show) #diceHead{padding-right:40px;padding-left:40px}
+  /* 団員の列：幅に収める（縦並びの小さなチップ） */
+  #crew{overflow:visible!important;gap:3px!important;padding:2px 0 14px!important}
+  #crew .carr{display:none}
+  #crew .cc{flex:1 1 0!important;min-width:0;flex-direction:column;gap:1px!important;padding:3px 2px 4px!important;border-radius:8px;border-left-width:1px;border-top:3px solid var(--c)}
+  #crew .cc img{width:26px!important;height:26px!important}
+  #crew .cc .ci{min-width:0;width:100%;align-items:center}#crew .cc .ci b{max-width:100%!important;font-size:10.5px;text-align:center}
+  #crew .cc .lf{height:3px;margin-top:2px}
+  #crew .cc .bd{width:15px;height:15px;font-size:9px;top:-5px}#crew .cc .cbd{right:-3px}#crew .cc .tbd{left:-3px;right:auto}
+  #crew .cc.now{transform:none}
+  #crew .cc .st{display:block!important;bottom:-12px;font-size:9px;padding:0 5px}
+  /* 手番の順番：1画面に収める */
+  #draw{padding:10px;box-sizing:border-box}#draw .dw-box{min-width:0;max-width:100%;box-sizing:border-box}#draw.show{grid-template-columns:minmax(0,1fr)}
+  .dw-box.wide .dw-t{font-size:22px;margin:2px 0 4px}.dw-box.wide .dw-s{font-size:12px;margin-bottom:8px}
+  .od-row{flex-direction:column;flex-wrap:nowrap;gap:6px;margin-bottom:10px}
+  .od{width:100%;flex-direction:row;align-items:center;gap:10px;padding:6px 10px;box-sizing:border-box}
+  .od img{width:36px;height:36px}.od b{font-size:14px}.od small{font-size:11px;margin-left:-4px}
+  .od b,.od small{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.od>b{flex:0 1 auto;min-width:0}.od small{flex:0 1 auto;min-width:0}
+  .od-dw{margin:0 0 0 auto}.od-die{width:36px;height:36px;padding:5px;gap:2px;border-radius:7px}
+  .od-rk{position:static;order:-1;opacity:1;min-width:38px;text-align:center;font-size:15px;visibility:hidden}
+  .od[class*=" rk"] .od-rk{visibility:visible}.od.rk0{transform:none}
+  .od-seq{display:none}
+  #odOk{margin-top:4px}
+  .dw-cards{display:grid!important;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.ctc{width:auto!important;height:118px!important;min-width:0}
+  .ctc-b{gap:1px;padding:6px}.ctc-b img{width:34px!important;height:34px!important}.ctc-b small{font-size:10.5px}
+  .dw-box.wide .dw-k{font-size:11px}
+  .ctc-b img{width:40px;height:40px}.ctc-b b{font-size:13px}.ctc-b span{margin-top:4px;font-size:10.5px}
+  .ctc-f{padding:8px}.ctc-f b{font-size:15px}.ctc-f p{font-size:11px;line-height:1.4;margin:2px 0}.ctc-f span{display:none}
+}
 </style>
 
 <div id="app">
@@ -826,6 +864,7 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
         <button class="iconbtn" id="bOdds" title="判定の成功率の表示">確率 表示</button>
         <button class="iconbtn" id="bHolo" title="下見カード（盤面に浮かぶカード）の表示：自動＝ふだんはマークだけ・マウスを乗せたカードだけ大きく（スマホはマークをタップ）／大＝常に大きく／隠す＝めくる時だけ表示">カード 自動</button>
         <button class="iconbtn" id="bRule">ルール</button>
+        <button class="iconbtn" id="bMe">自分のシート</button>
       </div>
     </div>
     <div id="squad"></div>
@@ -842,6 +881,7 @@ details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summar
   <div id="myturn"></div>
   <div id="draw"></div>
   <button id="bFollow" title="手番の団員を追う">◎ 手番を追う</button>
+  <button id="fabMenu" aria-label="メニュー">☰</button>
   <div id="netwait"></div><div id="nettoast"></div><div id="netcatch"><div><b>ゲームに追いついています…</b><span>ここまでの進行を早送りで再現しています</span></div></div>
   <div id="crewpop"></div>
   <div id="logdrawer" class="panel"><div class="lgh"><span class="eyebrow">Play Log　プレイログ</span><button class="iconbtn" id="bLogX">閉じる</button></div><div id="log"></div></div>
@@ -2028,7 +2068,7 @@ function renderCrew(){const el=$('#crew');if(!el||!S)return;const me=meIdx();
   el.querySelectorAll('[data-ci]').forEach(b=>{b.onclick=e=>{e.stopPropagation();showCrewPop(+b.dataset.ci,b)}})}
 function showCrewPop(i,anchor){const pop=$('#crewpop');if(pop.dataset.i==String(i)&&pop.classList.contains('show')){pop.classList.remove('show');pop.dataset.i='';return}
   const ch=S.chars[i];pop.innerHTML=sheetHTML(ch,i,mine(ch));pop.dataset.i=i;const r=anchor.getBoundingClientRect();
-  pop.style.left=Math.max(8,Math.min(innerWidth-300,r.left+r.width/2-140))+'px';pop.style.top=(r.bottom+8)+'px';pop.classList.add('show');SFX.flip()}
+  pop.style.left=Math.max(8,Math.min(innerWidth-288,r.left+r.width/2-140))+'px';const tp=Math.min(r.bottom+8,innerHeight-160);pop.style.top=tp+'px';pop.style.maxHeight=(innerHeight-tp-10)+'px';pop.classList.add('show');SFX.flip()}
 document.addEventListener('pointerdown',e=>{const pop=$('#crewpop');if(pop&&pop.classList.contains('show')&&!pop.contains(e.target)&&!e.target.closest('#crew'))pop.classList.remove('show')});
 function renderAll(){renderTop();renderSquad();renderPanel();renderHL();renderEhud()}
 const nm=ch=>`<b style="color:${ch.css}">${esc(ch.name)}</b>`;
@@ -2960,7 +3000,7 @@ async function orderDraw(){const n=S.chars.length;let vals;do{vals=S.chars.map((
   const el=$('#draw');const humans=S.chars.some(mine);
   el.innerHTML=`<div class="dw-box wide"><div class="dw-k">TURN ORDER</div><div class="dw-t">手番の順番を決める</div><div class="dw-s">全員でダイスを1個ずつ振り、<b>大きい目の人から</b>手番を行います</div>
     <div class="od-row">${S.chars.map((c,i)=>`<div class="od" data-i="${i}" style="--c:${c.css}"><img src="${AV[c.id]||''}" alt=""><b>${esc(c.name)}</b><small>${c.job}${c.cpu?'・CPU':''}</small><div class="od-dw">${dieFace(1)}</div><em class="od-rk"></em></div>`).join('')}</div>
-    <div class="od-seq"></div><button class="btn big" id="odOk" style="visibility:hidden">この順番で始める</button></div>`;
+    <div class="od-seq"></div><button class="btn big" id="odOk" style="visibility:hidden">作戦開始</button></div>`;
   el.className='show';const cards=[...el.querySelectorAll('.od')];SFX.rattle();
   const stopAt=cards.map((_,i)=>900+i*450);const t0=performance.now();let last={};
   await new Promise(res=>{const tick=()=>{const t=performance.now()-t0;let all=true;
@@ -3179,9 +3219,11 @@ function showRef(){modal(`<h3>早見表</h3><div class="ref">
   <section><h4>お宝と逃走</h4><ul><li>小粒 価値1・重さ1／上物 2・2／至宝 4・3</li><li>盗む判定に失敗すると警戒+1（お宝は入手）</li><li>逃走：重さ2ごとに必要成功数+1、2回失敗で逮捕</li></ul></section>
 </div>`,[{label:'閉じる',v:0,cls:'ghost'}],true)}
 $('#bMenu').onclick=e=>{e.stopPropagation();SFX.click();$('#top').classList.toggle('menu')};
-document.addEventListener('pointerdown',e=>{const t=$('#top');if(t&&t.classList.contains('menu')&&!e.target.closest('#toolbar')&&!e.target.closest('#bMenu'))t.classList.remove('menu')});
+document.addEventListener('pointerdown',e=>{const t=$('#top');if(t&&t.classList.contains('menu')&&!e.target.closest('#toolbar')&&!e.target.closest('#bMenu')&&!e.target.closest('#fabMenu'))t.classList.remove('menu')});
 $('#toolbar').addEventListener('click',e=>{if(e.target.closest('button')&&isPhone())setTimeout(()=>$('#top').classList.remove('menu'),150)});
 $('#bFollow').onclick=()=>{$('#bCam').click()};
+$('#fabMenu').onclick=e=>{e.stopPropagation();SFX.click();$('#top').classList.toggle('menu')};
+$('#bMe').onclick=e=>{e.stopPropagation();$('#top').classList.remove('menu');if(!S)return;const i=S.chars.findIndex(mine);showCrewPop(i>=0?i:meIdx(),$('#bMenu'))};
 $('#bRef').onclick=showRef;$('#bCam').onclick=()=>{SFX.click();setCamFree(false);cam.wantRad=innerWidth<700?24:19;cam.wantTheta=0;cam.phi=1;if(S&&S.phase==='adventure')focusOn(cur(),true);else cam.want.set(0,S&&S.phase!=='adventure'?4.3:0,S&&S.phase!=='adventure'?1.5:2)};
 $('#bLog').onclick=()=>{SFX.click();openLog(!$('#logdrawer').classList.contains('open'))};$('#bLogX').onclick=()=>openLog(false);
 $('#bRule2').onclick=showRules;$('#bRule').onclick=showRules;$('#bJobs').onclick=showJobs;
