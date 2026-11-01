@@ -161,7 +161,7 @@ button,input,select{font-family:inherit;color:inherit}
 #diceResult.bad .stamp{background:var(--bad);color:#fff}#diceResult.bad .head{color:#ff8a9a}
 #diceResult.meh .stamp{background:#3a3a48;color:var(--ivory)}#diceResult.meh .head{color:var(--ivory)}
 #diceNext{position:absolute;left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:none;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--mute);letter-spacing:.12em}
-#diceNext.show{display:flex}
+#diceNext.show{display:flex}#diceNext.wt i{display:none}#diceNext.wt span{color:var(--gold-hi);animation:breathe 1.4s infinite}
 #diceNext i{display:block;width:140px;height:2px;background:rgba(255,255,255,.12);overflow:hidden}
 #diceNext i::after{content:"";display:block;height:100%;width:100%;background:var(--gold);transform-origin:left;animation:countdown var(--dur,4s) linear forwards}
 @keyframes countdown{from{transform:scaleX(1)}to{transform:scaleX(0)}}
@@ -1937,9 +1937,11 @@ $('#diceLayer').addEventListener('pointerdown',()=>{if(DICE.phase==='rolling')DI
 // 結果カードを出して、タップか一定時間で閉じる（プレイヤーの手番は長め）
 function showResult(out){if(!out)return;const el=$('#diceResult');el.className=out.kind;
   el.innerHTML=`<div class="stamp">${out.stamp||({good:'SUCCESS',bad:'FAILURE',meh:'RESULT'}[out.kind])}</div><div class="head">${out.head}</div>${out.text?`<div class="txt">${out.text}</div>`:''}`;void el.offsetWidth;el.classList.add('show')}
-function holdResult(quick=false){DICE.phase='result';DICE.shownAt=performance.now();const ms=(isHuman()?(quick?3800:6500):(quick?2000:3200))*SPEED*TEMPO;
-  const nx=$('#diceNext');nx.style.setProperty('--dur',ms+'ms');nx.classList.remove('show');void nx.offsetWidth;nx.classList.add('show');
-  return new Promise(res=>{DICE.resolve=res;setTimeout(()=>{if(DICE.resolve===res){DICE.resolve=null;res()}},ms)})}
+function holdResult(quick=false){DICE.phase='result';DICE.shownAt=performance.now();const c=cur(),who=c&&!c.cpu?c:'host';
+  return askRaw(who,()=>{const ms=(isHuman()?(quick?3800:6500):(quick?2000:3200))*SPEED*TEMPO;
+    const nx=$('#diceNext');nx.classList.remove('wt');nx.querySelector('span').textContent='タップで次へ';nx.style.setProperty('--dur',ms+'ms');nx.classList.remove('show');void nx.offsetWidth;nx.classList.add('show');
+    return new Promise(res=>{const f=()=>res(1);DICE.resolve=f;setTimeout(()=>{if(DICE.resolve===f){DICE.resolve=null;res(1)}},ms)})},
+  w=>{const nx=$('#diceNext');if(w){nx.querySelector('span').textContent=`${waitName(w)}の確認を待っています…`;nx.classList.add('show','wt')}else{nx.classList.remove('wt');nx.querySelector('span').textContent='タップで次へ'}})}
 function slotXZ(i,n,rowZ){const rw=Math.floor(i/7),col=i%7,inRow=Math.min(7,n-rw*7);return[(col-(inRow-1)/2)*1.4,rowZ+rw*1.4]}
 // ダイスの数に合わせてカメラを引き、横一列が必ず画面に収まるようにする
 function diceFit(cols){if(cols)DICE.cols=cols;const c=Math.max(3,DICE.cols||3),a=DICE.cam.aspect||1;const half=c*.7+.9;
@@ -2221,12 +2223,15 @@ function modalI(html,buttons,wide=false){return new Promise(res=>{const m=$('#mo
 $('#modal').addEventListener('pointerdown',e=>{if(e.target.id==='modal'&&MODAL_CLOSE)MODAL_CLOSE()});
 addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#modal').classList.contains('show')&&MODAL_CLOSE)MODAL_CLOSE()});
 // 配られるカード（報酬・標的の公開）。裏向きで飛んできて、めくれて、盤へ戻っていく
-function dealCard({kicker='',title='',text='',meta='',color='#d9b46a',icon='card'}){return new Promise(res=>{const D=$('#deal'),c=D.querySelector('.dcard');
+function dealCard(o){const cc=cur(),who=cc&&!cc.cpu?cc:'host';let h=null;
+  return askRaw(who,()=>dealUI(o,true).done,w=>{if(w){h=dealUI(o,false);$('#deal .dhint').textContent=`${waitName(w)}の確認を待っています…`}else if(h)h.close()}).then(()=>h&&h.done)}
+function dealUI(o,inter){let close;const done=dealUI2(o,inter,f=>close=f);return{done,close:()=>close&&close()}}
+function dealUI2({kicker='',title='',text='',meta='',color='#d9b46a',icon='card'},inter,reg){return new Promise(res=>{const D=$('#deal'),c=D.querySelector('.dcard');D.querySelector('.dhint').textContent='タップで次へ';
   c.className='dcard';c.querySelector('.fr').innerHTML=`<div class="dk">${kicker}</div>${ICON[icon].replace('<svg','<svg class="dicon"')}<div class="dt">${title}</div><div class="dx">${text}</div>${meta?`<div class="dm">${meta}</div>`:''}`;
   c.style.setProperty('--dc',color);D.classList.add('show');void c.offsetWidth;c.classList.add('in');SFX.deal();
-  let closed=false;const close=()=>{if(closed)return;closed=true;c.classList.add('out');SFX.deal();setTimeout(()=>{D.classList.remove('show');c.className='dcard';res()},520)};
+  let closed=false;const close=()=>{if(closed)return;closed=true;D.onclick=null;c.classList.add('out');SFX.deal();setTimeout(()=>{D.classList.remove('show');c.className='dcard';res(1)},520)};reg(close);
   setTimeout(()=>{c.classList.remove('in');c.classList.add('front');SFX.flip()},620*SPEED);
-  setTimeout(()=>{D.onclick=close},1100*SPEED);setTimeout(close,(isHuman()?6000:3000)*SPEED*TEMPO)})}
+  if(inter){setTimeout(()=>{if(!closed)D.onclick=close},1100*SPEED);setTimeout(close,(isHuman()?6000:3000)*SPEED*TEMPO)}})}
 // 能力の発動を見せる：左上にカードが滑り込み、コマが職業色に光り、ログに残る。回数は最後に集計
 function abilityFire(ch,effect,{u='',v=1,weak=false}={}){if(!weak){S.abil=S.abil||{};const a=S.abil[ch.id]||(S.abil[ch.id]={n:0,sum:0,u});a.n++;a.sum+=v;if(u)a.u=u}
   weak?SFX.weak():SFX.ability();const P=pieces[ch.id];if(P&&P.g.visible&&!weak)burst(P.g.position.clone().add(new THREE.Vector3(0,.8,0)),ch.col,50,2.6,.4,1.1,2.2);
@@ -2825,7 +2830,7 @@ function sendIn(d){if(!S||NET.replaying)return;d.tn=S.stats.turns;d.ip=S.ip||0;i
   if(!NET.on){deliverIn(d);return}
   if(NET.host)hostIn(d,NET.me);else if(NET.hostPeer)netSend(NET.hostPeer,{t:'in',d});else netToast('ホストとの接続が切れています')}
 function hostIn(d,from){if(d.k==='ans'&&from===NET.me&&NET.log.some(x=>x.k==='ans'&&x.seq===d.seq))return;d.from=from;d.n=++NET.n;NET.log.push(d);netBroadcast({t:'in',d});deliverIn(d)}
-function deliverIn(d){if(d.k==='ans'){ANS[d.seq]=d.v;if(ASKW&&ASKW.seq===d.seq){const w=ASKW;ASKW=null;askWaitUI(null);w.res(d.v)}return}INQ.push(d);pump()}
+function deliverIn(d){if(d.k==='ans'){ANS[d.seq]=d.v;if(ASKW&&ASKW.seq===d.seq){const w=ASKW;ASKW=null;(w.waitUI||askWaitUI)(null);w.res(d.v)}return}INQ.push(d);pump()}
 function schedPump(ms=120){clearTimeout(pumpT);pumpT=setTimeout(pump,ms)}
 function pump(){if(!S||S.phase==='end')return;
   while(INQ.length){if(BUSY||S.step==='intro'||S.lockIn){schedPump();return}
@@ -2857,16 +2862,19 @@ function execCmd(d){const ch=cur();const bst=v=>Math.max(0,Math.min(ch.resv||0,v
     case'attack':{S.boost=bst(d.boost);S.push=!!d.push;S.pushSel=false;S.vsel=vOptions(ch,!!d.push).find(x=>x.t===d.t&&x.stat===d.stat)||null;guard(finalAttack);break}
     case'stall':guard(()=>stall(ch));break}}
 // 選択肢の問い合わせ（協力するか・割り込み・保釈など）。担当者の画面だけに出し、答えを全員に配る
-async function askRaw(ch,ui){S.aq=(S.aq||0)+1;const seq=S.aq;
+// 進行の同期点：決める人（手番の人、CPUや共通の画面はホスト）だけが操作でき、全員がその合図で一緒に進む
+function decides(who){if(!NET.on)return true;if(!who||who==='host'||who.cpu)return!!NET.host;return mine(who)}
+const waitName=w=>(!w||w==='host'||w.cpu)?'ホスト':w.name;
+async function askRaw(ch,ui,waitUI){S.aq=(S.aq||0)+1;const seq=S.aq;
   if(!NET.on)return await ui();
   if(seq in ANS)return ANS[seq];
-  if(mine(ch)){const v=await ui();sendAns(seq,v);return v}
-  askWaitUI(ch);return await new Promise(res=>{ASKW={seq,ch,ui,res}})}
+  if(decides(ch)){const v=await ui();sendAns(seq,v);return v}
+  (waitUI||askWaitUI)(ch);return await new Promise(res=>{ASKW={seq,ch,ui,res,waitUI}})}
 function sendAns(seq,v){const d={k:'ans',seq,v};if(NET.host)hostIn(d,NET.me);else if(NET.hostPeer)netSend(NET.hostPeer,{t:'in',d})}
 async function askModal(ch,html,buttons,wide){const i=await askRaw(ch,()=>modalI(html,buttons,wide));return(buttons[i]||buttons[buttons.length-1]).v}
 async function askModal2(ch,html,choices,wide){const i=await askRaw(ch,()=>modal2I(html,choices,wide));return i==null?null:choices[i]}
 function askWaitUI(ch){const el=$('#netwait');if(!el)return;if(!ch){el.classList.remove('show');return}
-  el.innerHTML=`<i style="background:${ch.css}"></i><b style="color:${ch.css}">${esc(ch.name)}</b>が選んでいます…`;el.classList.add('show')}
+  const col=ch&&ch.css&&!ch.cpu?ch.css:'var(--gold)';el.innerHTML=`<i style="background:${col}"></i><b style="color:${col}">${esc(waitName(ch))}</b>が選んでいます…`;el.classList.add('show')}
 // 同期ずれの検出：手番の始まりごとに状態の要約を比べる
 function stateHash(){const o=[RSEED,S.ip||0,S.aq||0,S.turn,S.round,S.gauge,S.plan,S.locks,S.phase,S.eta||0,S.chars.map(c=>[c.id,c.r,c.c,c.life,c.resv,c.xp,c.lv,c.dead?1:0,c.bag.length]),S.quests.map(q=>[q.progress,q.done?1:0,q.revealed?1:0,q.q.diff]),S.loot.map(l=>l.taken?1:0)];
   const str=JSON.stringify(o);let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619)}return(h>>>0).toString(36)}
@@ -2925,7 +2933,7 @@ function peerGone(P){if(P.gone)return;P.gone=true;if(NET.peers[P.id]===P)delete 
 // 切断した人の団員はホストが代わりに操作する（戻ってきたら返す）
 function takeOver(cid){if(!S)return;let ch=false;S.chars.forEach(c=>{if(c.owner===cid){c.owner=NET.me;c.lent=cid;ch=true}});if(!ch)return;
   netBroadcast({t:'own',m:S.chars.map(c=>[c.id,c.owner])});ownChanged()}
-function ownChanged(){if(ASKW&&mine(ASKW.ch)){const w=ASKW;ASKW=null;askWaitUI(null);w.ui().then(v=>{sendAns(w.seq,v);w.res(v)})}renderAll()}
+function ownChanged(){if(ASKW&&decides(ASKW.ch)){const w=ASKW;ASKW=null;(w.waitUI||askWaitUI)(null);w.ui().then(v=>{sendAns(w.seq,v);w.res(v)})}renderAll()}
 
 /* ---------- メッセージ ---------- */
 function netMsg(P,m){
@@ -3037,7 +3045,7 @@ function backToLobby(){ssSet('gh_net',NET.on?{code:NET.code,host:NET.host}:null)
 const JOBFOR={bat:['cracker','phantom','bouncer'],hck:['hacker','informant'],scn:['disguise','driver','pickpocket']};
 function vaultCardHTML(v){return`<div class="vcard"><div class="vn">${v.name}</div><div class="vb">${LTYPES.map(t=>`<span style="--lc:${LT[t].col}">${Array.from({length:v.counts[t]},()=>`<i>${LT[t].short}</i>`).join('')}</span>`).join('')}</div><div class="vt">${v.text}</div></div>`}
 function drawWait(el,ms){return new Promise(res=>{let done=false;const fin=()=>{if(done)return;done=true;el.onclick=null;res()};setTimeout(()=>{el.onclick=fin},700);if(ms)setTimeout(fin,ms)})}
-async function vaultDraw(){if(window.__FAST)return;const el=$('#draw');const V=vaultOf();const seq=[];for(let k=0;k<4;k++)VAULTS.forEach(v=>seq.push(v));seq.push(V);
+async function vaultDraw(){if(window.__FAST){await askRaw('host',async()=>1);return}const el=$('#draw');const V=vaultOf();const seq=[];for(let k=0;k<4;k++)VAULTS.forEach(v=>seq.push(v));seq.push(V);
   el.innerHTML=`<div class="dw-box"><div class="dw-k">TONIGHT'S VAULT</div><div class="dw-t">今夜の金庫を抽選</div><div class="dw-slot"><div class="dw-reel">${seq.map(vaultCardHTML).join('')}</div></div><div class="dw-d"></div><div class="dw-h">タップで次へ</div></div>`;
   el.className='show';const reel=el.querySelector('.dw-reel');const H=el.querySelector('.vcard').offsetHeight||150;let last=-1;SFX.rattle();
   await tween(3000,k=>{const pos=k*(seq.length-1);reel.style.transform=`translateY(${-pos*H}px)`;const i=Math.round(pos);if(i!==last){last=i;SFX.tick(i)}},x=>1-Math.pow(1-x,3));
@@ -3046,21 +3054,21 @@ async function vaultDraw(){if(window.__FAST)return;const el=$('#draw');const V=v
   const lines=LTYPES.map(t=>{const js=JOBFOR[t];const ours=crew.filter(c=>js.includes(c.id));return`<div class="dw-row" style="--lc:${LT[t].col}"><b>${LT[t].name} ×${V.counts[t]}</b><span>${STATN2[t]}が得意：${js.map(id=>{const c=crew.find(x=>x.id===id);return c?`<em style="color:${c.css}">${JOBS.find(j=>j.id===id).job}</em>`:`<s>${JOBS.find(j=>j.id===id).job}</s>`}).join('・')}</span>${ours.length?'':`<i>チームに得意な職業がいない</i>`}</div>`}).join('');
   el.querySelector('.dw-d').innerHTML=`<div class="dw-name">${V.name}</div>${major?`<div class="dw-hl">${LT[major].name}が多い。<b>${STATN2[major]}</b>が得意な団員が本番の主役</div>`:'<div class="dw-hl">3種類が均等。チーム全員に出番がある</div>'}${lines}`;
   log(`<span class="y">今夜の金庫：${V.name}（物理${V.counts.bat}・電子${V.counts.hck}・センサー${V.counts.scn}）</span>`);
-  await drawWait(el,isHuman()?0:6000);el.className=''}
-async function contractDraw(){if(window.__FAST)return;const el=$('#draw');const humans=S.chars.filter(mine);
+  await askRaw('host',()=>drawWait(el,NET.on||isHuman()?0:6000).then(()=>1),w=>{const hh=el.querySelector('.dw-h');if(hh)hh.textContent=w?'ホストが進めるのを待っています…':'タップで次へ'});el.className=''}
+async function contractDraw(){if(window.__FAST){await askRaw('host',async()=>1);return}const el=$('#draw');const humans=S.chars.filter(mine);
   el.innerHTML=`<div class="dw-box wide"><div class="dw-k">SECRET CONTRACT</div><div class="dw-t">裏の依頼を配ります</div><div class="dw-s">達成すると表彰式で名誉点ボーナス。<b>自分のカードだけ</b>をめくってください（他の人は見ないで）</div>
     <div class="dw-cards">${S.chars.map((c,i)=>{const ct=CONTRACTS.find(x=>x.id===c.contract);return`<div class="ctc ${mine(c)?'':'cpu'}" data-ci="${i}" style="--c:${c.css};animation-delay:${i*.18}s"><div class="ctc-in"><div class="ctc-b"><img src="${AV[c.id]||''}" alt=""><b>${esc(c.name)}</b><span>${c.cpu?'CPU：抽選済み':mine(c)?'タップでめくる':esc(memberName(c.owner))+'が確認中'}</span></div>
       <div class="ctc-f"><small>裏の依頼</small><b>${ct.name}</b><p>${ct.text}</p><em>達成で +${ct.pts}</em><span>もう一度タップで伏せる</span></div></div></div>`}).join('')}</div>
     <button class="btn big" id="dwOk">${humans.length?'確認した。作戦開始':'作戦開始'}</button></div>`;
   el.className='show';SFX.deal();S.chars.forEach((c,i)=>setTimeout(()=>SFX.deal(),i*180));
   el.querySelectorAll('.ctc:not(.cpu)').forEach(card=>card.onclick=e=>{e.stopPropagation();card.classList.toggle('flip');card.classList.add('seen');SFX.flip()});
-  await new Promise(res=>{$('#dwOk').onclick=e=>{e.stopPropagation();SFX.click();res()};if(!humans.length)setTimeout(res,3500)});el.className=''}
+  await askRaw('host',()=>new Promise(res=>{$('#dwOk').onclick=e=>{e.stopPropagation();SFX.click();res(1)};if(!humans.length)setTimeout(()=>res(1),3500)}),w=>{const b=$('#dwOk');if(b&&w){b.disabled=true;b.textContent='ホストの開始を待っています…'}});el.className=''}
 const OPIPS={1:[4],2:[0,8],3:[0,4,8],4:[0,2,6,8],5:[0,2,4,6,8],6:[0,2,3,5,6,8]};
 const dieFace=v=>`<span class="od-die">${Array.from({length:9},(_,k)=>`<i class="${OPIPS[v].includes(k)?'on':''}"></i>`).join('')}</span>`;
 async function orderDraw(){const n=S.chars.length;let vals;do{vals=S.chars.map(()=>d6())}while(new Set(vals).size<n);
   const order=S.chars.map((c,i)=>i).sort((a,b)=>vals[b]-vals[a]);
   const apply=()=>{S.chars=order.map(i=>S.chars[i]);S.turn=0;S.meIdx=null;reflowAll()};
-  if(window.__FAST){apply();return}
+  if(window.__FAST){await askRaw('host',async()=>1);apply();return}
   const el=$('#draw');const humans=S.chars.some(mine);
   el.innerHTML=`<div class="dw-box wide"><div class="dw-k">TURN ORDER</div><div class="dw-t">手番の順番を決める</div><div class="dw-s">全員でダイスを1個ずつ振り、<b>大きい目の人から</b>手番を行います</div>
     <div class="od-row">${S.chars.map((c,i)=>`<div class="od" data-i="${i}" style="--c:${c.css}"><img src="${AV[c.id]||''}" alt=""><b>${esc(c.name)}</b><small>${c.cpu?'CPU':''}</small><div class="od-dw">${dieFace(1)}</div><em class="od-rk"></em></div>`).join('')}</div>
@@ -3076,7 +3084,7 @@ async function orderDraw(){const n=S.chars.length;let vals;do{vals=S.chars.map((
   const seq=el.querySelector('.od-seq');seq.innerHTML=order.map((ci,rk)=>{const c=S.chars[ci];return`<span style="--c:${c.css};animation-delay:${.15*rk}s"><i>${rk+1}</i>${esc(c.name)}</span>`}).join('<u>→</u>');
   log(`手番の順番：${order.map(ci=>nm(S.chars[ci])).join(' → ')}`);
   const ok=$('#odOk');ok.style.visibility='visible';
-  await new Promise(res=>{ok.onclick=e=>{e.stopPropagation();SFX.click();res()};if(!humans)setTimeout(res,3000)});
+  await askRaw('host',()=>new Promise(res=>{ok.onclick=e=>{e.stopPropagation();SFX.click();res(1)};if(!humans)setTimeout(()=>res(1),3000)}),w=>{if(w){ok.disabled=true;ok.textContent='ホストの開始を待っています…'}});
   el.className='';apply();renderAll()}
 /* ---------- CPU ---------- */
 function bfsFrom(goals){const dist={};const q=[];goals.forEach(([r,c])=>{dist[key(r,c)]=0;q.push([r,c])});
