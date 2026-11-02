@@ -874,6 +874,7 @@ body:has(#myturn.show) #bFollow,body:has(#modal.show) #bFollow,body:has(#draw.sh
         <button class="iconbtn" id="bHolo" title="下見カード（盤面に浮かぶカード）の表示：自動＝ふだんはマークだけ・マウスを乗せたカードだけ大きく（スマホはマークをタップ）／大＝常に大きく／隠す＝めくる時だけ表示">カード 自動</button>
         <button class="iconbtn" id="bRule">ルール</button>
         <button class="iconbtn" id="bMe">自分のシート</button>
+        <button class="iconbtn" id="bQ" title="画質：高＝きれい／標準＝スマホ向け（30fps）／省電力＝発熱・電池を抑える">画質</button>
       </div>
     </div>
     <div id="squad"></div>
@@ -1324,7 +1325,7 @@ const canvas=$('#world');
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.08;
-renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.shadowMap.autoUpdate=false;
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x070508);scene.fog=new THREE.FogExp2(0x080609,.018);
 const camera=new THREE.PerspectiveCamera(40,1,.1,400);
 scene.add(new THREE.HemisphereLight(0x9c94c8,0x2a1808,.36));
@@ -1465,18 +1466,18 @@ function buildMap(){
       hq.add(mk(new THREE.BoxGeometry(.95,.5,.7),M(0x0f1c1b,0,0,{r:.5,m:.4}),0,.25,-.1));
       hq.add(mk(new THREE.BoxGeometry(.6,.32,.02),M(0x0a1110,0x52d4c6,.35,{m:.6}),0,.17,.26));
       hq.add(mk(new THREE.BoxGeometry(.97,.02,.72),GOLDG,0,.5,-.1));
-      const sgn=mk(new THREE.TorusGeometry(.12,.018,8,32),G(0x52d4c6),0,.68,.06);hq.add(sgn);
-      const ring=mk(new THREE.TorusGeometry(.83,.015,6,64),G(0x52d4c6),0,.01,0,Math.PI/2);deco.add(ring);
+      const sgn=mk(new THREE.TorusGeometry(.12,.018,8,32),G(0x52d4c6),0,.68,.06);sgn.userData.dyn=1;hq.add(sgn);
+      const ring=mk(new THREE.TorusGeometry(.83,.015,6,64),G(0x52d4c6),0,.01,0,Math.PI/2);ring.userData.dyn=1;deco.add(ring);
       const pl=new THREE.PointLight(0x52d4c6,.9,4.5);pl.position.set(0,1,.5);deco.add(pl);tile.hql=pl;anims.push(t=>{ring.rotation.z=t*.4;sgn.rotation.y=t*1.2})}
-    if(t==='S'){const bar=mk(new THREE.BoxGeometry(.75,.38,.55),M(0x0f1a12,0x62e3a4,.06,{r:.5,m:.3}),0,.19,0);deco.add(bar);
+    if(t==='S'){const bar=mk(new THREE.BoxGeometry(.75,.38,.55),M(0x0f1a12,0x62e3a4,.06,{r:.5,m:.3}),0,.19,0);bar.userData.dyn=1;deco.add(bar);
       deco.add(mk(new THREE.BoxGeometry(.77,.02,.57),GOLDG,0,.38,0));
-      const glass=new THREE.Group();glass.position.set(0,.6,0);deco.add(glass);
+      const glass=new THREE.Group();glass.userData.dyn=1;glass.position.set(0,.6,0);deco.add(glass);
       const neon=mk(new THREE.ConeGeometry(.11,.12,16,1,true),new THREE.MeshBasicMaterial({color:0x62e3a4,side:THREE.DoubleSide}),0,0,0,Math.PI);glass.add(neon);
       glass.add(mk(new THREE.CylinderGeometry(.008,.008,.12,6),G(0x62e3a4),0,-.12,0));glass.add(mk(new THREE.SphereGeometry(.018,8,8),G(0xee3a54),.03,.02,0));
       tile.neon=neon;tile.bar=bar;anims.push(t=>{glass.rotation.y=t*.8})}
     if(t==='N'){const bmat=new THREE.MeshStandardMaterial({color:0x14100a,emissive:0xffffff,emissiveMap:goldWin,emissiveIntensity:.55,roughness:.35,metalness:.6});
       deco.add(decoTower(1.25,.7,bmat,false));
-      const mark=mk(new THREE.OctahedronGeometry(.16,0),M(0xffe7b0,0xd9a440,1.2,{m:.8,r:.2}),0,1.55,0);deco.add(mark);targetMarks.push(mark);tile.mark=mark;
+      const mark=mk(new THREE.OctahedronGeometry(.16,0),M(0xffe7b0,0xd9a440,1.2,{m:.8,r:.2}),0,1.55,0);mark.userData.dyn=1;deco.add(mark);targetMarks.push(mark);tile.mark=mark;
       const pl=new THREE.PointLight(0xffb840,.45,2.6);pl.position.y=1.5;deco.add(pl);tile.tl=pl}
     shadowize(deco,true,false);
   }
@@ -1875,15 +1876,54 @@ function makeAvatars(){const sc=new THREE.Scene();sc.add(new THREE.HemisphereLig
 const tweens=[];
 function tween(ms,fn,ease=x=>x){if(window.__FAST){fn(ease(1));return Promise.resolve()}ms*=SPEED*TEMPO;return new Promise(res=>tweens.push({t0:performance.now(),ms:Math.max(1,ms),fn,ease,res}))}
 const easeOut=x=>1-Math.pow(1-x,3), easeInOut=x=>x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(composer){composer.setSize(w,h);bloom.resolution.set(w,h)}
+/* ---------- 描画の軽量化：動かない街の部品をまとめる・画質プロファイル ---------- */
+function matSig(m){if(m.map||m.emissiveMap||m.alphaMap)return'u'+m.uuid;const e=m.emissive?m.emissive.getHex():-1;
+  return[m.type,m.color.getHex(),e,m.emissiveIntensity,m.roughness,m.metalness,m.transparent,m.opacity,m.side,m.depthWrite].join('|')}
+function isDyn(o,stop){for(let x=o;x&&x!==stop;x=x.parent)if(x.userData&&x.userData.dyn)return true;return false}
+function mergeGeos(list,withUV){let n=0;const parts=list.map(([g,mx])=>{let q=g.index?g.toNonIndexed():g.clone();q.applyMatrix4(mx);n+=q.attributes.position.count;return q});
+  const pos=new Float32Array(n*3),nor=new Float32Array(n*3),uv=withUV?new Float32Array(n*2):null;let o=0;
+  parts.forEach(q=>{const c=q.attributes.position.count;pos.set(q.attributes.position.array,o*3);if(q.attributes.normal)nor.set(q.attributes.normal.array,o*3);if(uv&&q.attributes.uv)uv.set(q.attributes.uv.array,o*2);o+=c;q.dispose()});
+  const G=new THREE.BufferGeometry();G.setAttribute('position',new THREE.BufferAttribute(pos,3));G.setAttribute('normal',new THREE.BufferAttribute(nor,3));if(uv)G.setAttribute('uv',new THREE.BufferAttribute(uv,2));G.computeBoundingSphere();return G}
+function mergeStatic(){world.updateMatrixWorld(true);const inv=new THREE.Matrix4().copy(world.matrixWorld).invert();const groups=new Map();
+  Object.values(tiles).forEach(T=>T.deco.traverse(o=>{if(!o.isMesh||isDyn(o,T.deco.parent))return;const k=matSig(o.material);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(o)}));
+  let before=0,after=0;
+  groups.forEach(list=>{before+=list.length;if(list.length<2){after++;return}const m0=list[0];
+    const G=mergeGeos(list.map(o=>[o.geometry,new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld)]),!!(m0.material.map||m0.material.emissiveMap));
+    const mm=new THREE.Mesh(G,m0.material);mm.castShadow=m0.castShadow;mm.receiveShadow=m0.receiveShadow;world.add(mm);list.forEach(o=>{o.parent.remove(o);o.geometry.dispose()});after++});
+  // 六角マスの側面（色が変わらない）をまとめる。クリック判定用に元のメッシュは見えない状態で残す
+  {const sg=new Map();Object.values(tiles).forEach(T=>{const k=matSig(T.mesh.material);if(!sg.has(k))sg.set(k,[]);sg.get(k).push(T.mesh)});
+   sg.forEach(list=>{const G=mergeGeos(list.map(o=>{o.updateMatrixWorld(true);return[o.geometry,new THREE.Matrix4().multiplyMatrices(inv,o.matrixWorld)]}),false);
+     const mm=new THREE.Mesh(G,list[0].material);mm.receiveShadow=true;world.add(mm);list.forEach(o=>{o.visible=false})})}
+  // 六角マスの金の縁取りも1本に
+  const edges=Object.values(tiles).map(T=>T.edge).filter(Boolean);if(edges.length>1){const arr=[];edges.forEach(e=>{e.updateMatrixWorld(true);const g=e.geometry.clone();g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv,e.matrixWorld));arr.push(g)});
+    let n=0;arr.forEach(g=>n+=g.attributes.position.count);const pos=new Float32Array(n*3);let o=0;arr.forEach(g=>{pos.set(g.attributes.position.array,o*3);o+=g.attributes.position.count;g.dispose()});
+    const G=new THREE.BufferGeometry();G.setAttribute('position',new THREE.BufferAttribute(pos,3));const L=new THREE.LineSegments(G,edges[0].material);world.add(L);edges.forEach(e=>{e.parent.remove(e);e.geometry.dispose()});Object.values(tiles).forEach(T=>T.edge=L)}
+  console.log('mergeStatic',before,'->',after)}
+// 画質：high（PC）/ std（スマホ標準）/ eco（省電力）
+const QL={high:{pr:2,fps:60,bloom:1,plights:1,shadow:1},std:{pr:1.5,fps:30,bloom:1,plights:0,shadow:1},eco:{pr:1,fps:30,bloom:0,plights:0,shadow:0}};
+const QLABEL={high:'画質 高',std:'画質 標準',eco:'省電力'};
+let QMODE=(()=>{try{const v=localStorage.getItem('gh_q');if(v&&QL[v])return v}catch(e){}return(matchMedia('(pointer:coarse)').matches||innerWidth<=860)?'std':'high'})();
+let bloomPass=null;
+function applyQuality(){const q=QL[QMODE];renderer.setPixelRatio(Math.min(devicePixelRatio,q.pr));
+  [DICE&&DICE.r,STAGE&&STAGE.r].forEach(r=>{if(r)r.setPixelRatio(Math.min(devicePixelRatio,q.pr))});
+  if(composer&&bloom){bloom.enabled=!!q.bloom}
+  renderer.shadowMap.enabled=!!q.shadow;renderer.shadowMap.needsUpdate=true;
+  scene.traverse(o=>{if(o.isPointLight)o.visible=!!q.plights});
+  scene.traverse(o=>{if(o.material){const ms=Array.isArray(o.material)?o.material:[o.material];ms.forEach(m=>m.needsUpdate=true)}});
+  const b=$('#bQ');if(b)b.textContent=QLABEL[QMODE];resize()}
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();if(composer){composer.setSize(w,h);const bf=QMODE==='high'?1:.5;bloom.resolution.set(w*bf,h*bf)}
   DICE.r.setSize(w,h,false);DICE.cam.aspect=w/h;diceFit();if(w<=860)DICE.cam.setViewOffset(w,h,0,-h*.07,w,h);else DICE.cam.clearViewOffset();DICE.cam.updateProjectionMatrix();
   fxResize();if(!S)cam.rad=w<700?24:19;if(STAGE.on)stageResize()}
-function loop(){const dt=Math.min(.05,clock.getDelta()),t=clock.elapsedTime,now=performance.now();
+let lastF=0,frameN=0,fxDirty=true;
+function loop(){const now0=performance.now();const q=QL[QMODE];if(q.fps<60&&now0-lastF<1000/q.fps-3){requestAnimationFrame(loop);return}lastF=now0;frameN++;
+  const dt=Math.min(.05,clock.getDelta()),t=clock.elapsedTime,now=performance.now();
   for(let i=tweens.length-1;i>=0;i--){const tw=tweens[i];const k=Math.min(1,(now-tw.t0)/tw.ms);tw.fn(tw.ease(k));if(k>=1){tweens.splice(i,1);tw.res()}}
   anims.forEach(f=>f(t,dt));
   if(S){const act=S.chars[S.turn]?.id;Object.entries(pieces).forEach(([id,P])=>{const a=act===id&&S.phase!=='end';P.ring.material.opacity=a?.55+Math.sin(t*5)*.35:.22;P.ring.scale.setScalar(a?1+Math.sin(t*5)*.06:1);P.fig.position.y=a?Math.abs(Math.sin(t*3))*.06:0;animatePiece(P.fig,t)})}
-  updateCam();if(!window.__NR){if(composer)composer.render();else renderer.render(scene,camera);if(STAGE.on)stageFrame(t)}
-  if(DICE.on&&!window.__NR)diceFrame(dt,t);if(!window.__NR)fxFrame(dt);else{FX.parts.length=0}requestAnimationFrame(loop)}
+  updateCam();const covered=DICE.on||document.getElementById('draw').classList.contains('show');
+  renderer.shadowMap.needsUpdate=tweens.length>0||frameN%20===0;
+  if(!window.__NR){if(!covered||frameN%30===0){if(composer&&bloom&&bloom.enabled)composer.render();else renderer.render(scene,camera)}if(STAGE.on)stageFrame(t)}
+  if(DICE.on&&!window.__NR)diceFrame(dt,t);if(!window.__NR){const fxa=FX.parts.length||FX.rays.length||FX.shocks.length;if(fxa||fxDirty){fxFrame(dt);fxDirty=!!(FX.parts.length||FX.rays.length||FX.shocks.length)}}else{FX.parts.length=0}requestAnimationFrame(loop)}
 
 /* =====================================================================
    DICE — 黒漆に金の目のダイス。結果を先に決め、その目で着地させる
@@ -3296,6 +3336,7 @@ $('#toolbar').addEventListener('click',e=>{if(e.target.closest('button')&&isPhon
 $('#bFollow').onclick=()=>{$('#bCam').click()};
 $('#fabMenu').onclick=e=>{e.stopPropagation();SFX.click();$('#top').classList.toggle('menu')};
 $('#bMe').onclick=e=>{e.stopPropagation();$('#top').classList.remove('menu');if(!S)return;const i=S.chars.findIndex(mine);showCrewPop(i>=0?i:meIdx(),$('#bMenu'))};
+$('#bQ').onclick=()=>{const o=['high','std','eco'];QMODE=o[(o.indexOf(QMODE)+1)%3];try{localStorage.setItem('gh_q',QMODE)}catch(e){}applyQuality();SFX.click()};
 $('#bRef').onclick=showRef;$('#bCam').onclick=()=>{SFX.click();setCamFree(false);cam.wantRad=innerWidth<700?24:19;cam.wantTheta=0;cam.phi=1;if(S&&S.phase==='adventure')focusOn(cur(),true);else cam.want.set(0,S&&S.phase!=='adventure'?4.3:0,S&&S.phase!=='adventure'?1.5:2)};
 $('#bLog').onclick=()=>{SFX.click();openLog(!$('#logdrawer').classList.contains('open'))};$('#bLogX').onclick=()=>openLog(false);
 $('#bRule2').onclick=showRules;$('#bRule').onclick=showRules;$('#bJobs').onclick=showJobs;
@@ -3344,7 +3385,7 @@ const JB=(()=>{const HIRA=/[ぁ-ゟ]/,SMALL=/[ぁぃぅぇぉっゃゅょゎァ�
   const obs=new MutationObserver(ms=>{ms.forEach(m=>m.addedNodes.forEach(n=>pend.add(n)));if(!raf)raf=requestAnimationFrame(flush)});
   addEventListener('resize',()=>{if(!raf)raf=requestAnimationFrame(flush)});
   walk(document.body);obs.observe(document.body,{childList:true,subtree:true});return{fit,walk}})();
-buildMap();makeAvatars();legend();renderSeats();renderNetPanel();addEventListener('load',()=>setTimeout(loadPJ,300));
+buildMap();mergeStatic();makeAvatars();legend();applyQuality();renderSeats();renderNetPanel();addEventListener('load',()=>setTimeout(loadPJ,300));
 {const sv=ssGet('gh_net');if(sv&&sv.code){if(sv.host)netCreate(sv.code);else setTimeout(()=>netJoin(sv.code),2500)}}
 addEventListener('resize',resize);resize();loop();
 anims.push(t=>{if(!S)cam.theta=.25+Math.sin(t*.07)*.5});
