@@ -1,4 +1,4 @@
-<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"></head><body>
 <title>GRAND HEIST</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -846,6 +846,10 @@ input,textarea,#log,.np-code b{word-break:normal}
 #bFollow{transition:opacity .6s}#bFollow.idle{opacity:0;pointer-events:none}
 body:has(#diceLayer.show) #cmd,body:has(#diceLayer.show) #ticker{visibility:hidden}
 body:has(#myturn.show) #bFollow,body:has(#modal.show) #bFollow,body:has(#draw.show) #bFollow,body:has(#crewpop.show) #bFollow,body:has(#top.menu) #bFollow,body:has(#deal.show) #bFollow,body:has(#logdrawer.open) #bFollow{display:none!important}
+
+/* ===== スマホの拡大防止 ===== */
+html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+@media (pointer:coarse){input,select,textarea{font-size:16px!important}}
 </style>
 
 <div id="app">
@@ -3363,6 +3367,9 @@ async function startGame(sel,seed){setSeed(seed);
 document.addEventListener('pointerdown',function once(){audioInit();if(AU.ctx.state==='suspended')AU.ctx.resume();if(!S)music(TRACK_TITLE);document.removeEventListener('pointerdown',once)},{once:true});
 
 // boot
+// スマホでの勝手な拡大を防ぐ：入力欄タップ時の自動ズームとダブルタップズームを止める
+(()=>{let m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';document.head.appendChild(m)}
+  m.content='width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover'})();
 
 /* ---------- 日本語の改行：文節の区切りでだけ折り返し、見出しは1行に収める ---------- */
 const JB=(()=>{const HIRA=/[ぁ-ゟ]/,SMALL=/[ぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮー々ゝゞヽヾ]/,
