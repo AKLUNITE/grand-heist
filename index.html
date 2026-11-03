@@ -578,7 +578,7 @@ button,input,select{font-family:inherit;color:inherit}
   #cmd{grid-column:1;grid-row:4;width:100%;max-height:44vh}
   #ticker{grid-column:1}
   .cc .ci{min-width:0}.cc .ci small{display:none}.cc .ci b{max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  #vhud,#ehud{top:auto!important;bottom:calc(44vh + 34px)!important}
+  #vhud,#ehud{top:auto!important;bottom:calc(var(--dockh,44vh) + 10px)!important}
   #says,#abils{top:auto!important;bottom:calc(44vh + 40px)!important}
   #toast{top:auto!important;bottom:52vh!important}
   #cmd .hand .acard{flex-basis:140px;min-height:120px}
@@ -850,6 +850,13 @@ body:has(#myturn.show) #bFollow,body:has(#modal.show) #bFollow,body:has(#draw.sh
 /* ===== スマホの拡大防止 ===== */
 html,body{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 @media (pointer:coarse){input,select,textarea{font-size:16px!important}}
+
+/* ===== 本番：適性と錠前の性格 ===== */
+.lop .lcrew{font-size:11.5px;color:var(--mute);margin:0 0 2px}.lop .lcrew em{font-style:normal;font-weight:700}.lop .lcrew s{opacity:.6}
+.lop .lb u{text-decoration:none;font-weight:900;margin-right:8px;padding:1px 6px;border-radius:3px;font-size:12px}
+.lop .lb.apt2 u{background:#1b1206;color:var(--gold-hi)}.lop .lb.apt1 u{background:rgba(0,0,0,.35);color:#1b1206}
+.lop .lb.apt0{background:rgba(255,74,98,.12);color:var(--ivory);border:1px solid rgba(255,74,98,.5)}.lop .lb.apt0 u{background:#ff4a62;color:#fff}
+.lop .lb.apt1{background:linear-gradient(180deg,#e9dcc0,#bfa977)}
 </style>
 
 <div id="app">
@@ -2148,24 +2155,32 @@ const T_ADV=[{k:'2+',t:'経験+1',c:'g',test:s=>s>=2},{k:'1',t:'経験+1、た�
 function T_CH(need,rw){const r=[{k:need+'+',t:`達成！「${rw}」を入手、経験`,c:'g',test:s=>s>=need}];if(need>1)r.push({k:`1〜${need-1}`,t:'あと一歩：成功数ぶん達成マーカー',c:'y',test:s=>s>0&&s<need});
   r.push({k:'0',t:'成果なし',test:s=>s===0},{k:'−',t:'失敗：マーカー消失、参加者全員1ダメージ',c:'r',test:s=>s<0});return r}
 // 金庫は外側から内側へ硬くなる：残りロック9〜7＝外周（1段に成功数4）／6〜4＝中層（5）／3〜1＝最深部（6）
-const VSTAGE=[{name:'外周',base:4},{name:'中層',base:5},{name:'最深部',base:6}];
+const VSTAGE=[{name:'外周',base:5},{name:'中層',base:6},{name:'最深部',base:7}];
 const vStage=()=>S.locks>6?0:S.locks>3?1:2;
 const vBase=()=>VSTAGE[vStage()].base;
-// ロックの種類：各層に物理錠・電子錠・センサー錠が1つずつ。得意分野の能力値なら必要数そのまま、専門外は+1
+// ロックの種類と、キャラごとの適性（◎得意＝必要−1／○普通＝そのまま／×苦手＝必要+1。苦手なら一番高い能力で代用して必要+1）
 const LT={bat:{name:'物理錠',short:'物',col:'#f0954a',verb:'力ずくで外す'},hck:{name:'電子錠',short:'電',col:'#52d4c6',verb:'回路を解析する'},scn:{name:'センサー錠',short:'セ',col:'#ff7fd0',verb:'センサーをかいくぐる'}};
 const LTYPES=['bat','hck','scn'];
 const vJob=(ch,stat)=>(ch.id==='cracker'&&stat==='bat')||(ch.id==='hacker'&&stat==='hck')||(ch.id==='informant'&&stat==='hck')||(ch.id==='pickpocket'&&stat==='scn')?1:0;
 function vDice(ch,stat,push=false){return ch[stat]+(stat==='bat'?S.bonus.bat:0)+vJob(ch,stat)+(S.bonus.scan?2:0)+ch.buff.dice+S.boost+(push?3:0)}
+const APTL=['×苦手','○普通','◎得意'],APTM=[1,0,-1];
+function vApt(ch,t){const e=ch[t]+vJob(ch,t);return e>=3?2:e>=2?1:0}
+// 錠前の性格
+const LTRAIT={bat:{short:'成功で+1段／失敗ダメージ+1',long:'力ずくの錠前。成功すると解除が1段多い。ただし失敗のダメージも+1'},
+  hck:{short:'しくじっても連携+3',long:'解析の錠前。届かなくても次の団員に+3を引き継げる（通常は+2）'},
+  scn:{short:'成功数1以下で警備−1手番',long:'センサーの錠前。成功数1以下だと警報で警備隊の到着が1手番早まる'}};
 function vOptions(ch,push=false){const li=vStage(),b=VSTAGE[li].base;const bonus=(S.chain||0)+(S.crackerBonus||0);const out=[];
-  [...new Set(S.vlocks[li]||[])].forEach(t=>{const off=LTYPES.filter(x=>x!==t).sort((x,y)=>ch[y]-ch[x])[0];
-    [t,off].forEach(stat=>{const n=vDice(ch,stat,push),need=b+(stat===t?0:1);out.push({t,stat,n,need,spec:stat===t,p:odds(n,need-bonus)})})});return out}
+  [...new Set(S.vlocks[li]||[])].forEach(t=>{const apt=vApt(ch,t);const off=LTYPES.filter(x=>x!==t).sort((x,y)=>ch[y]-ch[x])[0];
+    const A={t,stat:t,n:vDice(ch,t,push),need:b+APTM[apt],spec:true,apt};const B={t,stat:off,n:vDice(ch,off,push),need:b+1,spec:false,apt};
+    [A,B].forEach(o=>o.p=odds(o.n,o.need-bonus));out.push(apt===0&&B.p>A.p?B:A)});return out}
 const vaultOf=()=>VAULTS.find(v=>v.id===(S&&S.vault))||VAULTS[0];
 function vLayout(){if(!S.vlayout){const V=vaultOf();const bag=[];LTYPES.forEach(t=>{for(let i=0;i<V.counts[t];i++)bag.push(t)});
     shuffle(bag);S.vlayout=[bag.slice(0,3),bag.slice(3,6),bag.slice(6,9)]}return S.vlayout}
 function removeLocks(t,k){for(let i=0;i<k;i++){const li=S.vlocks.findIndex(l=>l.length);if(li<0)return;const L=S.vlocks[li];const j=i===0&&t?L.indexOf(t):-1;L.splice(j>=0?j:0,1)}}
-function finalRows(b=vBase()){return[[`${b+2}+`,'神業：ロックを3段解除','g',s=>s>=b+2],[`${b+1}`,'ロックを2段解除','g',s=>s===b+1],[`${b}`,'ロックを1段解除','g',s=>s===b],[`${b-1}`,'1段解除、警報で自分に1ダメージ','y',s=>s===b-1],
-  [b-2>2?`2〜${b-2}`:'2','連携：次の団員の判定に+2','y',s=>s>=2&&s<=b-2],['1','センサーに触れた：自分に1ダメージ','r',s=>s===1],['0','警備員と鉢合わせ：自分に2ダメージ','r',s=>s===0],['−','包囲された：自分に3ダメージ','r',s=>s<0]]}
-const T_FINALf=(b)=>finalRows(b).map(([k,t,c,test])=>({k,t,c,test}));
+function finalRows(b=vBase(),t=''){const x=t==='bat'?1:0,ch=t==='hck'?3:2,sc=t==='scn'?'・警備−1手番':'';
+  return[[`${b+2}+`,`神業：ロックを${3}段解除`,'g',s=>s>=b+2],[`${b+1}`,`ロックを${2+x}段解除`,'g',s=>s===b+1],[`${b}`,`ロックを${1+x}段解除`,'g',s=>s===b],[`${b-1}`,`1段解除、警報で自分に${1+x}ダメージ`,'y',s=>s===b-1],
+  [b-2>2?`2〜${b-2}`:'2',`連携：次の団員の判定に+${ch}`,'y',s=>s>=2&&s<=b-2],['1',`センサーに触れた：自分に${1+x}ダメージ${sc}`,'r',s=>s===1],['0',`警備員と鉢合わせ：自分に${2+x}ダメージ${sc}`,'r',s=>s===0],['−',`包囲された：自分に${3+x}ダメージ${sc}`,'r',s=>s<0]]}
+const T_FINALf=(b,lt)=>finalRows(b,lt).map(([k,t,c,test])=>({k,t,c,test}));
 function renderPanel(){const el=$('#cmd');if(!S)return;el.dataset.step=S.phase==='adventure'?S.step:S.phase;el.dataset.mine=cur()&&mine(cur())?'1':'0';const mt=$('#myturn');mt.classList.remove('show');renderCrew();
   if(S.phase==='end'){el.innerHTML='';el.classList.add('empty');return}
   const ch=cur();el.style.setProperty('--c',ch.css);el.classList.remove('empty');
@@ -2177,13 +2192,17 @@ function renderPanel(){const el=$('#cmd');if(!S)return;el.dataset.step=S.phase==
   if(ch.cpu){el.innerHTML=`<div class="cpuline" style="--c:${ch.css}"><img src="${AV[ch.id]||''}" alt=""><span><b>${esc(ch.name)}</b>が${stText()}…</span><button class="btn ghost" id="bFast">${SPEED<1?'通常速度に戻す':'CPUの番を早送り'}</button></div>`;$('#bFast').onclick=()=>{SPEED=SPEED<1?1:.45;renderPanel()};return}
   if(S.phase==='final'){const push=!!S.pushSel;
     const thr=ALARMS.filter(a=>!S.alarmsHit.includes(a)&&a<S.locks)[0];
-    const chips=[`<span class="fc"><b>${VSTAGE[vStage()].name}</b> 得意${vBase()}・専門外${vBase()+1}${vStage()<2?`（次の層${VSTAGE[vStage()+1].base}）`:''}</span>`,
+    const chips=[`<span class="fc"><b>${VSTAGE[vStage()].name}</b> 必要 ◎${vBase()-1}・○${vBase()}・×${vBase()+1}${vStage()<2?`（次の層は+1）`:''}</span>`,
       `<span class="fc ${S.eta<=3?'warn':''}">${S.eta>0?`警備隊まで <b>${S.eta}</b>手番`:'<b>包囲中</b>：毎手番巡回'}</span>`];
     if(thr!=null)chips.push(`<span class="fc warn">あと<b>${S.locks-thr}</b>段で巡回</span>`);
     if(S.chain)chips.push(`<span class="fc gold">連携 +${S.chain}</span>`);if(S.crackerBonus)chips.push(`<span class="fc gold">金庫の声 +${S.crackerBonus}</span>`);if(S.bonus.scan)chips.push(`<span class="fc gold">金庫解析 ダイス+2</span>`);
     h+=`<div class="fchips">${chips.join('')}</div>`;
     const ops=vOptions(ch,push);const li=vStage();
-    h+=`<div class="lockops">${[...new Set(S.vlocks[li])].map(t=>`<div class="lop" style="--lc:${LT[t].col}"><div class="lh"><b>${LT[t].name}${S.vlocks[li].filter(x=>x===t).length>1?` ×${S.vlocks[li].filter(x=>x===t).length}`:''}</b><span>${STATN2[t]}で${LT[t].verb}</span></div>${ops.filter(o=>o.t===t).map(o=>`<button class="lb ${o.spec?'sp':'off'}" data-lt="${o.t}" data-ls="${o.stat}"><span>${o.spec?'得意':'専門外'}：${STATN2[o.stat]}×${o.n}</span><i>必要${o.need}${S.showOdds!==false?`　1段以上 ${pct(odds(o.n,o.need-1-(S.chain||0)-(S.crackerBonus||0)))}`:''}</i></button>`).join('')}</div>`).join('')}</div>`;
+    const crewApt=t=>S.chars.filter(c=>!c.dead&&vApt(c,t)===2).map(c=>`<em style="color:${c.css}">${esc(c.name)}</em>`).join('・')||'<s>なし</s>';
+    h+=`<div class="lockops">${[...new Set(S.vlocks[li])].map(t=>{const o=ops.find(x=>x.t===t);const cnt=S.vlocks[li].filter(x=>x===t).length;
+      return`<div class="lop" style="--lc:${LT[t].col}"><div class="lh"><b>${LT[t].name}${cnt>1?` ×${cnt}`:''}</b><span>${LTRAIT[t].short}</span></div>
+      <div class="lcrew">◎担当：${crewApt(t)}</div>
+      <button class="lb apt${o.apt} ${o.spec?'sp':'off'}" data-lt="${o.t}" data-ls="${o.stat}" title="${LTRAIT[t].long}"><span><u>${APTL[o.apt]}</u>${STATN2[o.stat]}×${o.n}${o.spec?'':'で代用'}</span><i>必要${o.need}${S.showOdds!==false?`　1段以上 ${pct(odds(o.n,o.need-1-(S.chain||0)-(S.crackerBonus||0)))}`:''}</i></button></div>`}).join('')}</div>`;
     h+=`<div class="util">${boostUI(ch)}<button class="btn push ${push?'on':''}" id="bPushT" title="ONで全ダイス+3。代わりに警備隊の到着が1手番早まり、成功数1以下なら巡回も呼ぶ">強引にこじ開ける：<b>${push?'ON':'OFF'}</b><em>ダイス+3／警備−1手番</em></button>${trumpBar('final',true)}${S.plan>=STALL_COST?`<button class="btn ghost" id="bStall" title="警備隊の到着を1手番遅らせる">段取り${STALL_COST}で足止め</button>`:''}</div>`;
     h+=`<details class="ftab"><summary>結果表（成功数ごとの結果）</summary><table class="table sm">${finalRows(vBase()).map(([a,b,c],i)=>`<tr class="${c}"><td>${['必要+2','必要+1','必要','必要−1','それ未満','1','0','−'][i]}</td><td>${b}</td></tr>`).join('')}</table></details>`;
     el.innerHTML=h;bindBoost(ch);bindTrump();$('#bPushT').onclick=()=>{S.pushSel=!S.pushSel;SFX.click();renderPanel()};
@@ -2477,39 +2496,44 @@ async function cpuFinal(){const ch=cur();if(S.phase!=='final'||ch.dead)return;if
   await finalAttack()}
 function advanceFinal(go=true){for(let i=0;i<S.chars.length;i++){S.turn=(S.turn+1)%S.chars.length;if(S.turn===0)S.round++;if(!S.chars[S.turn].dead)break}if(go)beginFinalTurn()}
 function cmdAttack(push=false,t=null,stat=null){SFX.click();S.push=push;S.pushSel=false;if(t){const o=vOptions(cur(),push).find(x=>x.t===t&&x.stat===stat);S.vsel=o||null}guard(finalAttack)}
-function finalExplain(s,b=vBase()){if(s<0)return{kind:'bad',level:2,stamp:'SURROUNDED',head:'包囲された！',text:'自分に3ダメージ'};if(s===0)return{kind:'bad',level:2,stamp:'GUARD',head:'警備員と鉢合わせ',text:'自分に2ダメージ'};
-  if(s===1)return{kind:'bad',level:1,stamp:'SENSOR',head:'センサーに触れた',text:'自分に1ダメージ'};if(s<=b-2)return{kind:'meh',stamp:'LINK',head:'連携プレー',text:'次の団員の判定に+2'};
-  if(s===b-1)return{kind:'meh',stamp:'ALARM',head:'1段解除…しかし警報',text:'ロック1段解除、自分に1ダメージ'};if(s===b)return{kind:'good',level:1,stamp:'UNLOCK',head:'ロック1段解除',text:''};if(s===b+1)return{kind:'good',level:2,stamp:'PERFECT',head:'完璧な手際',text:'ロック2段解除'};
+function finalExplain(s,b=vBase(),t=''){const x=t==='bat'?1:0,cn=t==='hck'?3:2,sc=t==='scn'?'。警報で警備隊が1手番早まる':'';
+  if(s<0)return{kind:'bad',level:2,stamp:'SURROUNDED',head:'包囲された！',text:`自分に${3+x}ダメージ${sc}`};if(s===0)return{kind:'bad',level:2,stamp:'GUARD',head:'警備員と鉢合わせ',text:`自分に${2+x}ダメージ${sc}`};
+  if(s===1)return{kind:'bad',level:1,stamp:'SENSOR',head:'センサーに触れた',text:`自分に${1+x}ダメージ${sc}`};if(s<=b-2)return{kind:'meh',stamp:'LINK',head:'連携プレー',text:`次の団員の判定に+${cn}${t==='hck'?'（解析を引き継ぐ）':''}`};
+  if(s===b-1)return{kind:'meh',stamp:'ALARM',head:'1段解除…しかし警報',text:`ロック1段解除、自分に${1+x}ダメージ`};if(s===b)return{kind:'good',level:1+x,stamp:x?'BREAK':'UNLOCK',head:`ロック${1+x}段解除`,text:x?'力ずくでもう1段':''};
+  if(s===b+1)return{kind:'good',level:2,stamp:'PERFECT',head:'完璧な手際',text:`ロック${2+x}段解除`};
   return{kind:'good',level:3,stamp:'MASTERPIECE',head:'神業！',text:'ロック3段解除'}}
-async function finalAttack(){const ch=cur();const sel=S.vsel||vOptions(ch).sort((x,y)=>y.p-x.p)[0];S.vsel=null;const t=sel.t,stat=sel.stat,spec=stat===t;
+async function finalAttack(){const ch=cur();const sel=S.vsel||vOptions(ch).sort((x,y)=>y.p-x.p)[0];S.vsel=null;const t=sel.t,stat=sel.stat,spec=stat===t;const apt=vApt(ch,t),xb=t==='bat'?1:0;
   const b=spendBoost(ch,S.boost);S.boost=0;const bf=takeBuff([ch]);const scan=S.bonus.scan?2:0;const push=!!S.push;S.push=false;
   const base=ch[stat],tool=stat==='bat'?S.bonus.bat:0,crk=ch.id==='cracker'&&stat==='bat'?1:0,hk=vJob(ch,stat)&&!crk?1:0;
   const n=base+tool+crk+hk+b+scan+bf.dice+(push?3:0);const chain=S.chain;S.chain=0;const cb=S.crackerBonus||0;S.crackerBonus=0;
-  const need=vBase()+(spec?0:1);
+  const need=spec?vBase()+APTM[apt]:vBase()+1;
   const src=[{t:`${STATN2[stat]}${base}`,who:ch.name,n:base,c:base<=2?'weak':'',col:ch.css}];if(tool)src.push({t:`ツール+${tool}`,who:'報酬',n:tool,c:'reward'});
   if(crk)src.push({t:'金庫破りの勘+1',who:'金庫破り',n:1,c:'ability',col:ch.css});if(hk)src.push({t:`${ch.skill}+1`,who:ch.name,n:1,c:'ability',col:ch.css});if(scan)src.push({t:'金庫解析+2',who:'連携技',n:2,c:'ability',col:'#f4dc9f'});src.push(...bf.src);if(b)src.push({t:`${ch.res.name}+${b}`,n:b,c:'boost'});if(push)src.push({t:'こじ開け+3',who:'強引',n:3,c:'weak'});
   if(push){if(S.eta>0){S.eta--;renderVhud()}await banner('強引にこじ開ける','ダイス+3。物音で警備隊の到着が1手番早まる',BC.red,1600)}
-  await banner(LT[t].name,`${esc(ch.name)}が${STATN2[stat]}で${LT[t].verb}${spec?'':'（専門外：必要+1）'}`,LT[t].col,1300);
+  await banner(LT[t].name,`${esc(ch.name)}が${STATN2[stat]}で${LT[t].verb}　${spec?APTL[apt]:'×苦手：'+STATN2[stat]+'で代用'}`,LT[t].col,1300);
   if(crk){abilityFire(ch,'物理錠の判定でダイス+1',{u:'追加ダイス',v:1});await wait(400)}if(hk){abilityFire(ch,`${LT[stat].name}の判定でダイス+1`,{u:'追加ダイス',v:1});await wait(400)}
-  if(!spec){abilityFire(ch,`専門外の${LT[t].name}に挑む（必要+1）`,{weak:true});await wait(400)}
+  if(!spec){abilityFire(ch,`苦手な${LT[t].name}：${STATN2[stat]}で代用（必要+1）`,{weak:true});await wait(400)}
+  else if(apt===2){abilityFire(ch,`得意な${LT[t].name}：必要成功数−1`,{u:'得意',v:1});await wait(400)}
+  else if(apt===0){abilityFire(ch,`苦手な${LT[t].name}：必要成功数+1`,{weak:true});await wait(400)}
   const P=pieces[ch.id];const from=P.g.position.clone();const front=new THREE.Vector3(from.x*.45,.45,from.z*.45-1.2);
   await tween(420,k=>{P.g.position.lerpVectors(from,front,k);P.g.position.y+=Math.sin(k*Math.PI)*.8});
   const bonus=chain+cb;const bl=chain&&cb?'連携+金庫の声':cb?'金庫の声':'連携';
-  const s=await peakRoll(n,{purpose:`金庫破り　${LT[t].name}`,title:`${ch.name}`,ladder:[[2,'連携+2'],[need-1,'1段解除（1ダメージ）'],[need,'1段解除'],[need+1,'2段解除'],[need+2,'3段解除']].filter((x,i,a)=>i===0||x[0]>a[0][0]),tense:true,
-    sub:`${push?'<b style="color:#ff8a9a">強引にこじ開ける：成功数1以下で巡回を呼ぶ</b>。':''}${VSTAGE[vStage()].name}の<b style="color:${LT[t].col}">${LT[t].name}</b>に${STATN2[stat]}で挑む${spec?'':'（専門外）'}。<b>成功数${need}で1段、${need+1}で2段、${need+2}以上で3段解除</b>（残りロック${S.locks}）${bonus?`　${bl}+${bonus}込み`:''}`,bonus,bonusLabel:bl,need,noFumble:bf.noF,noFumbleOne:S.bonus.noFumble,explain:x=>finalExplain(x,need),table:T_FINALf(need),src});
+  const s=await peakRoll(n,{purpose:`金庫破り　${LT[t].name}`,title:`${ch.name}`,ladder:[[2,`連携+${t==='hck'?3:2}`],[need-1,`1段解除（${1+xb}ダメージ）`],[need,`${1+xb}段解除`],[need+1,`${2+xb}段解除`],[need+2,'3段解除']].filter((x,i,a)=>i===0||x[0]>a[0][0]),tense:true,
+    sub:`${push?'<b style="color:#ff8a9a">強引にこじ開ける：成功数1以下で巡回を呼ぶ</b>。':''}${VSTAGE[vStage()].name}の<b style="color:${LT[t].col}">${LT[t].name}</b>に${STATN2[stat]}で挑む（${spec?APTL[apt]:'×苦手・代用'}）。<b>成功数${need}で${1+xb}段、${need+1}で${2+xb}段、${need+2}以上で3段解除</b>　${LTRAIT[t].short}（残りロック${S.locks}）${bonus?`　${bl}+${bonus}込み`:''}`,bonus,bonusLabel:bl,need,noFumble:bf.noF,noFumbleOne:S.bonus.noFumble,explain:x=>finalExplain(x,need,t),table:T_FINALf(need,t),src});
   const back=()=>tween(420,k=>P.g.position.lerpVectors(front,from,k));
   const first=()=>{if(!S.chars.some(c=>c.st.firstLock))ch.st.firstLock=true};
   const st0=vStage();const open=async k=>{first();const before=S.locks;removeLocks(t,Math.min(k,S.locks));await unlock(Math.min(k,before))};
-  if(s<0){log(`<span class="r">成功${s}：包囲された（3ダメージ）</span>`);await laserTo(pieceWorld(ch));await hurt(ch,3)}
-  else if(s===0){log(`<span class="r">成功0：警備員と鉢合わせ（2ダメージ）</span>`);await laserTo(pieceWorld(ch));await hurt(ch,2)}
-  else if(s===1){log(`<span class="r">成功1：センサーに触れた（1ダメージ）</span>`);SFX.laser();await hurt(ch,1)}
-  else if(s<=need-2){S.chain=2;log(`<span class="y">成功${s}：連携！次の団員に+2成功を引き継ぐ</span>`)}
-  else if(s===need-1){log(`<span class="y">成功${s}：${LT[t].name}を解除、しかし警報（自分に1ダメージ）</span>`);await open(1);if(S.phase!=='final')return;alarm();await hurt(ch,1)}
-  else if(s===need){log(`<span class="g">成功${s}：${LT[t].name}を解除</span>`);await open(1)}
-  else if(s===need+1){log(`<span class="g">成功${s}：完璧な手際！ロック2段解除</span>`);await open(2)}
+  const sensor=async()=>{if(t==='scn'&&S.phase==='final'){if(S.eta>0){S.eta--;renderVhud()}log('<span class="r">センサーの警報：警備隊の到着が1手番早まった</span>');await banner('センサー警報','警備隊の到着 −1手番',BC.red,1400)}};
+  if(s<0){log(`<span class="r">成功${s}：包囲された（${3+xb}ダメージ）</span>`);await laserTo(pieceWorld(ch));await hurt(ch,3+xb);await sensor()}
+  else if(s===0){log(`<span class="r">成功0：警備員と鉢合わせ（${2+xb}ダメージ）</span>`);await laserTo(pieceWorld(ch));await hurt(ch,2+xb);await sensor()}
+  else if(s===1){log(`<span class="r">成功1：センサーに触れた（${1+xb}ダメージ）</span>`);SFX.laser();await hurt(ch,1+xb);await sensor()}
+  else if(s<=need-2){S.chain=t==='hck'?3:2;log(`<span class="y">成功${s}：連携！次の団員に+${S.chain}成功を引き継ぐ</span>`)}
+  else if(s===need-1){log(`<span class="y">成功${s}：${LT[t].name}を解除、しかし警報（自分に${1+xb}ダメージ）</span>`);await open(1);if(S.phase!=='final')return;alarm();await hurt(ch,1+xb)}
+  else if(s===need){log(`<span class="g">成功${s}：${LT[t].name}を解除${xb?'（力ずくでもう1段）':''}</span>`);await open(1+xb)}
+  else if(s===need+1){log(`<span class="g">成功${s}：完璧な手際！ロック${2+xb}段解除</span>`);await open(2+xb)}
   else{log(`<span class="g">成功${s}：神業！ロック3段解除</span>`);await open(3)}
   if(push&&s<=1&&S.phase==='final'){log('<span class="r">強引にこじ開けた音で警備ドローンが来た</span>');await patrol()}
-  if(S.phase==='final'&&vStage()>st0){const V=VSTAGE[vStage()];SFX.boom();shake(700,.4);await banner(`${V.name}へ`,`ロックが硬くなった：1段外すのに成功数${V.base}`,BC.gold,2200)}
+  if(S.phase==='final'&&vStage()>st0){const V=VSTAGE[vStage()];SFX.boom();shake(700,.4);await banner(`${V.name}へ`,`ロックが硬くなった：必要成功数 ◎${V.base-1}／○${V.base}／×${V.base+1}`,BC.gold,2200)}
   if(S.phase!=='final')return;await back();
   if(S.chars.every(c=>c.dead)){await endGame(false,'本番で全員が確保された');return}
   renderAll();S.lockIn=true;setTimeout(()=>advanceFinal(true),800*SPEED*TEMPO)}
@@ -3300,7 +3324,20 @@ return`<h3>遊び方</h3>
   <h4>本番：金庫のロック9段</h4>
   <p>ロックは<b>外周・中層・最深部</b>の3層に3つずつ。手番ごとに今の層のロックを1つ選んで判定します。ロックの種類で使う能力値が決まります。</p>
   <div class="rrow"><span class="lk" style="--lc:#f0954a">物理錠＝突破</span><span class="lk" style="--lc:#52d4c6">電子錠＝技術</span><span class="lk" style="--lc:#ff7fd0">センサー錠＝潜入</span></div>
-  <p>必要成功数は外周 ${md(4)} 中層 ${md(5)} 最深部 ${md(6)}。苦手な種類（専門外）に挑むと+1されます。どの種類が多いかは毎回「今夜の金庫」の抽選で変わります。</p>
+  <p>団員ごとに、錠前の種類への<b>適性</b>があります（その能力値が3以上なら◎、2なら○、1なら×。担当職業のダイス+1も含む）。</p>
+  <div class="rgrid">
+    <div><b>◎得意</b><span>必要成功数 −1</span></div><div><b>○普通</b><span>そのまま</span></div>
+    <div><b>×苦手</b><span>必要成功数 +1。一番高い能力値で代用して挑むこともできる（必要+1）。ボタンには有利な方が自動で出ます</span></div>
+    <div><b>必要成功数</b><span>○で 外周${md(VSTAGE[0].base)} 中層${md(VSTAGE[1].base)} 最深部${md(VSTAGE[2].base)}</span></div>
+  </div>
+  <h4>錠前の性格</h4>
+  <div class="rgrid">
+    <div><b style="color:#f0954a">物理錠</b><span>${LTRAIT.bat.long}</span></div>
+    <div><b style="color:#52d4c6">電子錠</b><span>${LTRAIT.hck.long}</span></div>
+    <div><b style="color:#ff7fd0">センサー錠</b><span>${LTRAIT.scn.long}</span></div>
+    <div><b>作戦</b><span>各錠前の「◎担当」が画面に出ます。誰がどの錠前を開けるか、どの順に開けるかを相談しよう</span></div>
+  </div>
+  <p>どの種類が多いかは毎回「今夜の金庫」の抽選で変わります。</p>
   <div class="rgrid">
     <div><b>ぴったり成功</b><span>1段外れる。+1なら2段、+2以上なら3段まとめて外れる</span></div>
     <div><b>あと1つ足りない</b><span>1段外れるが、自分が1ダメージ</span></div>
@@ -3330,7 +3367,7 @@ function showRef(){modal(`<h3>早見表</h3><div class="ref">
   <section><h4>判定（ピークロール）</h4><div class="row">${md(1,'r')} −1</div><div class="row">${md(2,'z')}${md(3,'z')} ±0</div><div class="row">${md(4,'g')}${md(5,'g')} +1</div><div class="row">${md(6,'y')} +1、もう1個振る（2以上で+1）</div></section>
   <section><h4>アクション</h4><ul><li>下見：伏せた標的をめくる</li><li>下準備：判定で報酬カード入手</li><li>小仕事：成功数2以上で経験+1</li><li>休息：スタミナ+2（アジトはリソースも回復）</li></ul></section>
   <section><h4>警戒トラック</h4><ul><li>◆（4・8・12）で警察が動く</li><li>15で強行突入（巡回2回から本番）</li></ul></section>
-  <section><h4>本番（突破で判定）</h4><div class="row">物理錠＝突破　電子錠＝技術　センサー錠＝潜入（専門外は必要+1）</div><div class="row">ロックの硬さ　外周${md(4)}　中層${md(5)}　最深部${md(6)}</div><div class="row">ちょうど＝1段　+1＝2段　+2＝3段</div><div class="row">1足りない＝1段＋1ダメージ　それ未満＝連携+2</div><div class="row">${md(1,'r')} 1ダメージ　${md(0,'r')} 2ダメージ　${md('−','r')} 3ダメージ</div><ul><li>警備隊到着まで8手番（強行5）。過ぎると毎手番巡回</li><li>強引にこじ開ける：+3ダイス、警備到着−1、1以下で巡回</li></ul></section>
+  <section><h4>本番（金庫のロック）</h4><div class="row">物理錠＝突破　電子錠＝技術　センサー錠＝潜入</div><div class="row">適性　◎得意 必要−1　○普通　×苦手 必要+1</div><div class="row">○の必要数　外周${md(VSTAGE[0].base)}　中層${md(VSTAGE[1].base)}　最深部${md(VSTAGE[2].base)}</div><div class="row">物理：成功で+1段・失敗ダメ+1／電子：連携+3／センサー：1以下で警備−1手番</div><div class="row">ちょうど＝1段　+1＝2段　+2＝3段</div><div class="row">1足りない＝1段＋1ダメージ　それ未満＝連携+2</div><div class="row">${md(1,'r')} 1ダメージ　${md(0,'r')} 2ダメージ　${md('−','r')} 3ダメージ</div><ul><li>警備隊到着まで8手番（強行5）。過ぎると毎手番巡回</li><li>強引にこじ開ける：+3ダイス、警備到着−1、1以下で巡回</li></ul></section>
   <section><h4>段取り・切り札・連携技</h4><ul><li>段取り：下見+1／下準備達成+1／換金</li><li>切り札：段取りを払って職業ごとの技</li><li>連携技：決まった2人が隣接で発動（各1回）</li></ul></section>
   <section><h4>お宝と逃走</h4><ul><li>小粒 価値1・重さ1／上物 2・2／至宝 4・3</li><li>盗む判定に失敗すると警戒+1（お宝は入手）</li><li>逃走：重さ2ごとに必要成功数+1、2回失敗で逮捕</li></ul></section>
 </div>`,[{label:'閉じる',v:0,cls:'ghost'}],true)}
