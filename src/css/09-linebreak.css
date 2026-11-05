@@ -1,0 +1,7 @@
+/* ===== 改行の整え ===== */
+.nb{display:inline-block;white-space:nowrap}
+body{word-break:keep-all;overflow-wrap:anywhere;line-break:strict}
+input,textarea,#log,.np-code b{word-break:normal}
+#bFollow{transition:opacity .6s}#bFollow.idle{opacity:0;pointer-events:none}
+body:has(#diceLayer.show) #cmd,body:has(#diceLayer.show) #ticker{visibility:hidden}
+body:has(#myturn.show) #bFollow,body:has(#modal.show) #bFollow,body:has(#draw.show) #bFollow,body:has(#crewpop.show) #bFollow,body:has(#top.menu) #bFollow,body:has(#deal.show) #bFollow,body:has(#logdrawer.open) #bFollow{display:none!important}

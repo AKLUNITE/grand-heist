@@ -1,0 +1,35 @@
+/* ===== 操作欄：スクロールせずに収める ===== */
+#cmd .hand{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px;overflow:visible!important;padding:2px 0 4px}
+#cmd .hand .acard{min-height:0!important;flex:none!important;padding:8px 10px 9px;gap:2px}
+#cmd .hand .acard.wide{grid-column:span 2}
+#cmd .hand .acard .ax{display:none}
+#cmd .hand .acard svg{width:20px;height:20px}
+#cmd .hand .acard .at{font-size:15px}
+#cmd .loc{font-size:12px;color:var(--ivory);background:rgba(255,255,255,.06);padding:1px 8px;border-radius:10px;margin-left:4px}
+.ngline{font-size:11.5px;color:var(--dim);margin:2px 0 4px;line-height:1.5}.ngline span{white-space:nowrap}.ngline i{font-style:normal;opacity:.75}
+#cmd .util{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px}
+#cmd .util .btn{width:auto;margin:0;padding:7px 12px;font-size:13px;flex-direction:row;align-items:center;gap:6px}
+#cmd .util .btn small{display:none}#cmd .util .btn em{font-style:normal;font-size:11px;opacity:.8;font-weight:500}
+#cmd .util .boost{margin:0;padding:3px 8px}
+#cmd .util #bWait{margin-left:auto}
+#cmd .util .tw{font-size:11.5px;color:#8fe9ff;opacity:.8}
+.fchips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 6px}.fc{font-size:12px;padding:2px 9px;border-radius:10px;background:rgba(255,255,255,.06);color:var(--mute)}.fc b{color:var(--ivory)}
+.fc.warn{background:rgba(255,74,98,.14);color:#ffb3bd}.fc.warn b{color:#fff}.fc.gold{background:rgba(244,220,159,.14);color:var(--gold-hi)}
+#cmd .lockops{grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-top:0;gap:6px}
+#cmd .lop{padding:5px 7px}#cmd .lop .lh{margin-bottom:2px}#cmd .lop .lb{padding:6px 9px;margin-top:3px;font-size:13px}
+details.ftab{margin-top:6px;font-size:12px;color:var(--mute)}details.ftab summary{cursor:pointer;color:var(--gold)}
+#cmd{max-height:none!important;overflow:visible!important}
+@media (max-width:860px){
+  #cmd .hand{grid-template-columns:repeat(2,minmax(0,1fr))}#cmd .hand .acard .tag{display:none}
+  #cmd .hand .acard .an{font-size:10px}#cmd .hand .acard .at{font-size:13.5px}#cmd .hand .acard .am{font-size:11px}
+  #cmd .lockops{grid-template-columns:1fr}
+  .ngline{display:none}
+  #cmd .hand .acard.wide{grid-column:auto}#cmd .hand .acard svg{display:none}#cmd .hand .acard{padding:6px 8px}
+  .logo{display:none}#top{gap:4px 12px!important;padding:8px 10px!important}.stat .k{font-size:10px}.stat .v{font-size:19px!important}#vtype{font-size:15px}
+  #cmd .util .btn{padding:6px 9px;font-size:12px}#cmd .util #bWait{margin-left:0}
+  #cmd{max-height:58vh!important;overflow-y:auto!important}
+}
+@media (max-height:760px) and (min-width:861px){#cmd .hand .acard .tag{display:none}#cmd .dockhead{margin-bottom:2px}}
+.glabel .t{white-space:nowrap}
+.bagrow{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.07);flex-wrap:wrap}.bagrow .bn{flex:1;min-width:140px}.bagrow .bn b{display:block}.bagrow .bn small{color:var(--mute)}
+.bagrow .bb{display:flex;gap:6px;flex-wrap:wrap}.mini{padding:6px 10px;border-radius:3px;border:1px solid var(--c,var(--line2));background:rgba(255,255,255,.04);color:var(--ivory);font-weight:700;font-size:12.5px;cursor:pointer}.mini em{font-style:normal;font-size:11px;color:var(--gold-hi);font-weight:500}.mini:hover{background:rgba(217,180,106,.15)}

@@ -1,0 +1,37 @@
+/* ===== スマホ：手番順・団員の列・待機中メニュー ===== */
+#bMe,#fabMenu{display:none}
+#crewpop{overflow-y:auto}
+@media (max-width:860px){
+  #bMe{display:block}
+  #top.menu{z-index:50!important}
+  #fabMenu{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);right:10px;z-index:46;width:38px;height:38px;border-radius:50%;border:1px solid var(--line2);background:rgba(10,10,16,.92);color:var(--ivory);font-size:18px;box-shadow:0 6px 16px rgba(0,0,0,.6)}
+  body:has(#diceLayer.show) #fabMenu,body:has(#draw.show) #fabMenu{display:grid;place-items:center}
+  body:has(#diceLayer.show) #dicePurpose,body:has(#diceLayer.show) #diceTitle{margin-left:36px;margin-right:36px}
+  /* 団員の列：幅に収める（縦並びの小さなチップ） */
+  #crew{overflow:visible!important;gap:3px!important;padding:2px 0 14px!important}
+  #crew .carr{display:none}
+  #crew .cc{flex:1 1 0!important;min-width:0;flex-direction:column;gap:1px!important;padding:3px 2px 4px!important;border-radius:8px;border-left-width:1px;border-top:3px solid var(--c)}
+  #crew .cc img{width:26px!important;height:26px!important}
+  #crew .cc .ci{min-width:0;width:100%;align-items:center}#crew .cc .ci b{max-width:100%!important;font-size:10.5px;text-align:center}
+  #crew .cc .lf{height:3px;margin-top:2px}
+  #crew .cc .bd{width:15px;height:15px;font-size:9px;top:-5px}#crew .cc .cbd{right:-3px}#crew .cc .tbd{left:-3px;right:auto}
+  #crew .cc.now{transform:none}
+  #crew .cc .st{display:none!important}
+  /* 手番の順番：1画面に収める */
+  #draw{padding:10px;box-sizing:border-box}#draw .dw-box{min-width:0;max-width:100%;box-sizing:border-box}#draw.show{grid-template-columns:minmax(0,1fr)}
+  .dw-box.wide .dw-t{font-size:22px;margin:2px 0 4px}.dw-box.wide .dw-s{font-size:12px;margin-bottom:8px}
+  .od-row{flex-direction:column;flex-wrap:nowrap;gap:6px;margin-bottom:10px}
+  .od{width:100%;flex-direction:row;align-items:center;gap:10px;padding:6px 10px;box-sizing:border-box}
+  .od img{width:36px;height:36px}.od b{font-size:14px}.od small{font-size:11px;margin-left:-4px}
+  .od b,.od small{text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.od>b{flex:0 1 auto;min-width:0}.od small{flex:0 1 auto;min-width:0}
+  .od-dw{margin:0 0 0 auto}.od-die{width:36px;height:36px;padding:5px;gap:2px;border-radius:7px}
+  .od-rk{position:static;order:-1;opacity:1;min-width:38px;text-align:center;font-size:15px;visibility:hidden}
+  .od[class*=" rk"] .od-rk{visibility:visible}.od.rk0{transform:none}
+  .od-seq{display:none}
+  #odOk{margin-top:4px}
+  .dw-cards{display:grid!important;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}.ctc{width:auto!important;height:118px!important;min-width:0}
+  .ctc-b{gap:1px;padding:6px}.ctc-b img{width:34px!important;height:34px!important}.ctc-b small{font-size:10.5px}
+  .dw-box.wide .dw-k{font-size:11px}
+  .ctc-b img{width:40px;height:40px}.ctc-b b{font-size:13px}.ctc-b span{margin-top:4px;font-size:10.5px}
+  .ctc-f{padding:8px}.ctc-f b{font-size:15px}.ctc-f p{font-size:11px;line-height:1.4;margin:2px 0}.ctc-f span{display:none}
+}

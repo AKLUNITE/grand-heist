@@ -1,0 +1,90 @@
+
+<div id="app">
+  <canvas id="world" aria-label="3Dマップ"></canvas>
+  <div id="hud" hidden>
+    <div id="top" class="panel">
+      <div class="logo">GRAND HEIST<small>PHANTOM CREW</small></div>
+      <div class="gaugebox">
+        <div class="glabel"><span class="t">警戒レベル <span>― 移動で6が出ると上昇／◆で警察が動く／MAXで強行突入</span></span><b id="gnum">1 / 15</b></div>
+        <div id="gauge"></div>
+      </div>
+      <div class="stat plan" title="段取り：切り札に使うチーム共有の資源"><span class="k">段取り</span><span class="v" id="pnum">2</span><div id="ptok"></div></div>
+      <div class="stat" title="今夜の金庫：ロックの種類の内訳"><span class="k">今夜の金庫</span><span class="v vt" id="vtype">―</span></div>
+      <div class="stat"><span class="k">下準備</span><span class="v" id="qnum">0/5</span></div>
+      <div class="stat rwst" title="手に入れた報酬（全員に効果）"><span class="k">報酬</span><div id="rwtray"></div></div>
+      <div class="stat"><span class="k">ラウンド</span><span class="v" id="rnum">1</span></div>
+      <button class="iconbtn" id="bMenu" aria-label="メニュー">☰<i></i></button>
+      <div id="toolbar">
+        <button class="iconbtn" id="bBgm" title="BGMのオン/オフ">BGM</button>
+        <button class="iconbtn" id="bSfx" title="効果音のオン/オフ">SE</button>
+        <button class="iconbtn" id="bLog">ログ<b id="logn"></b></button>
+        <button class="iconbtn" id="bRef">早見表</button>
+        <button class="iconbtn" id="bCam" title="視点を初期位置に戻す（盤面をスライドして自由視点になっているときは「手番を追う」に変わる）。　回転：ドラッグ／スライド：右ドラッグ・Shift+ドラッグ・WASDキー（スマホは2本指ドラッグ）／拡大縮小：ホイール・ピンチ">視点</button>
+        <button class="iconbtn" id="bSpd" title="演出の速さ">演出 遅め</button>
+        <button class="iconbtn" id="bOdds" title="判定の成功率の表示">確率 表示</button>
+        <button class="iconbtn" id="bHolo" title="下見カード（盤面に浮かぶカード）の表示：自動＝ふだんはマークだけ・マウスを乗せたカードだけ大きく（スマホはマークをタップ）／大＝常に大きく／隠す＝めくる時だけ表示">カード 自動</button>
+        <button class="iconbtn" id="bRule">ルール</button>
+        <button class="iconbtn" id="bMe">自分のシート</button>
+        <button class="iconbtn" id="bQ" title="画質：高＝きれい／標準＝スマホ向け（30fps）／省電力＝発熱・電池を抑える">画質</button>
+      </div>
+    </div>
+    <div id="squad"></div>
+    <div id="crew"></div>
+    <div id="ticker"></div>
+    <div id="cmd" class="panel"></div>
+    <div id="vaulthp" class="panel" hidden><div class="nm"><span class="eyebrow">Vault Locks　金庫ロック</span><b id="khpn">9</b></div><div id="hpcells"></div></div>
+  </div>
+  <div id="toast"></div>
+  <div id="abils"></div>
+  <div id="says"></div>
+  <div id="cutin"></div>
+  <div id="vhud" hidden></div>
+  <div id="myturn"></div>
+  <div id="draw"></div>
+  <button id="bFollow" title="手番の団員を追う">◎ 手番を追う</button>
+  <button id="fabMenu" aria-label="メニュー">☰</button>
+  <div id="netwait"></div><div id="nettoast"></div><div id="netcatch"><div><b>ゲームに追いついています…</b><span>ここまでの進行を早送りで再現しています</span></div></div>
+  <div id="crewpop"></div>
+  <div id="logdrawer" class="panel"><div class="lgh"><span class="eyebrow">Play Log　プレイログ</span><button class="iconbtn" id="bLogX">閉じる</button></div><div id="log"></div></div>
+  <div id="ehud" hidden></div>
+
+  <div id="diceLayer"><canvas id="diceCanvas"></canvas><div id="diceGo"></div><div id="diceHead"><div class="purpose" id="dicePurpose"></div><div id="diceTitle"></div><div id="diceSub"></div><div id="diceSrc"></div></div>
+    <div id="diceLegend" hidden></div><div id="diceTable" hidden></div><div id="pops"></div><div id="diceBreak"></div><div id="diceTally"></div>
+    <div id="diceResult"></div><div id="diceNext"><span>タップで次へ</span><i></i></div></div>
+  <div id="vignette"></div>
+  <div id="flash"></div>
+  <canvas id="fxCanvas"></canvas>
+  <div id="banner"><div class="band"></div></div>
+  <div id="deal"><div class="dcard"><div class="dface back"></div><div class="dface fr"></div></div><div class="dhint">タップで次へ</div></div>
+  <div id="modal"><div class="box"></div></div>
+
+  <div id="title">
+    <div class="tin">
+      <div class="lockup">
+        <div class="rule"><span class="eyebrow">The Aurora Job</span></div>
+        <div class="biglogo">GRAND HEIST</div>
+        <div class="kana">グランド・ハイスト</div>
+      </div>
+      <p class="tag">カジノ王が眠る〈ゴールデン・オーロラ〉の地下金庫。決行は警察の警戒が整う前。<br>街を下見し、5つの下準備を揃え、全員で金庫を破れ。</p>
+      <div id="netpanel"></div>
+      <div class="sect"><h2>怪盗団の編成</h2><span>団員ごとに名前・職業・操作を選ぶ（職業の重複不可）</span></div>
+      <div id="stageWrap"><canvas id="stage" aria-label="選んだ職業のコマ"></canvas></div>
+      <div class="seats" id="seats"></div>
+      <p class="note">2〜5人で出撃。人数が少ないときは1人で2職業以上を操作するのもおすすめです。<br>1台で遊ぶときはこの画面で全員分を設定。友達と遊ぶときは上の「オンラインで遊ぶ」から部屋を作ってください。</p>
+      <div class="tbtns">
+        <button class="btn big" id="bStart">決行する</button>
+        <button class="btn ghost" id="bJobs">職業一覧</button>
+        <button class="btn ghost" id="bRule2">ルール</button>
+      </div>
+      <p class="note">BGMと効果音が鳴ります。音量にご注意ください。</p>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>

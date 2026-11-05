@@ -1,0 +1,6 @@
+/* ===== 本番：適性と錠前の性格 ===== */
+.lop .lcrew{font-size:11.5px;color:var(--mute);margin:0 0 2px}.lop .lcrew em{font-style:normal;font-weight:700}.lop .lcrew s{opacity:.6}
+.lop .lb u{text-decoration:none;font-weight:900;margin-right:8px;padding:1px 6px;border-radius:3px;font-size:12px}
+.lop .lb.apt2 u{background:#1b1206;color:var(--gold-hi)}.lop .lb.apt1 u{background:rgba(0,0,0,.35);color:#1b1206}
+.lop .lb.apt0{background:rgba(255,74,98,.12);color:var(--ivory);border:1px solid rgba(255,74,98,.5)}.lop .lb.apt0 u{background:#ff4a62;color:#fff}
+.lop .lb.apt1{background:linear-gradient(180deg,#e9dcc0,#bfa977)}
